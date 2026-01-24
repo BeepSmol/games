@@ -200,7 +200,7 @@
             <p class="text-xs mb-4">
                 The machine hums with energy. Reset your run to acquire Chronotons.
                 <br>REQ: 25,000 LIFETIME SECONDS.
-                <br>EFFECT: +250% (2.5x) SPEED PER CHRONOTON.
+                <br>EFFECT: +100x SPEED PER CHRONOTON.
             </p>
             <div id="potentialChrono" class="text-lg mb-4 text-white">REWARD: 0 CHRONOTONS</div>
             <button onclick="prestige()" class="btn w-full border-purple-500 text-purple-400 hover:bg-purple-900">
@@ -347,7 +347,7 @@
             });
             
             // Apply Multipliers
-            const prestigeMult = 1 + (state.chronotons * 2.5); 
+            const prestigeMult = 1 + (state.chronotons * 100); 
             const realWorldMult = getRealWorldMult();
             const finalRate = baseRate * prestigeMult * realWorldMult;
 
@@ -890,3 +890,4 @@
 </body>
 
 </html>
+
