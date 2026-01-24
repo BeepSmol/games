@@ -75,6 +75,14 @@
             user-select: none;
             animation: floatUp 4s linear forwards;
             z-index: 50;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .golden-second.captured {
+            color: #00ff00;
+            transform: scale(1.5) !important;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ff00;
+            pointer-events: none;
         }
         @keyframes floatUp {
             0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
@@ -85,6 +93,28 @@
             margin-bottom: 4px;
             padding: 4px;
             border-left: 2px solid #333;
+        }
+
+        /* Bubble Wrap */
+        .bubble {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            cursor: pointer;
+            background: #222;
+        }
+        .bubble.popped {
+            background: transparent;
+            border-color: #333;
+            transform: scale(0.9);
+        }
+
+        /* Drawing Canvas */
+        #drawCanvas {
+            border: 1px dashed #666;
+            cursor: crosshair;
+            background: #111;
+            touch-action: none;
         }
     </style>
 </head>
@@ -118,15 +148,42 @@
 
         <!-- Stats Block -->
         <div class="box flex flex-col items-center">
-            <div class="grid grid-cols-2 w-full gap-4 text-center mb-6">
+            
+            <!-- TOTALS COUNTERS -->
+            <div class="grid grid-cols-2 w-full gap-4 text-center mb-4 border-b border-gray-700 pb-4">
                 <div>
-                    <div class="text-xs text-gray-500">TIME WASTED</div>
-                    <div class="text-4xl font-bold" id="secondsDisplay">0.0</div>
-                    <div class="text-xs" id="rateDisplay">+0.0/s</div>
+                    <div class="text-xs text-purple-400 font-bold">LIFETIME (CHRONO BASE)</div>
+                    <div class="text-xl font-bold text-purple-300" id="chronoTotalDisplay">0.0</div>
                 </div>
                 <div>
+                    <div class="text-xs text-blue-400 font-bold">TOTAL (THIS RUN)</div>
+                    <div class="text-xl font-bold text-blue-300" id="runTotalDisplay">0.0</div>
+                </div>
+            </div>
+
+            <!-- MAIN STATS ROW -->
+            <div class="grid grid-cols-3 w-full gap-2 text-center mb-6 items-center">
+                <div class="col-span-1">
+                    <div class="text-xs text-gray-500">TIME WASTED</div>
+                    <div class="text-3xl font-bold" id="secondsDisplay">0.0</div>
+                    <div class="text-xs" id="rateDisplay">+0.0/s</div>
+                </div>
+                
+                <!-- CHRONOTONS (Hidden until prestige) -->
+                <div id="chronoColumn" class="col-span-1 border-x border-gray-800 hidden">
+                    <div class="text-xs text-purple-400">CHRONOTONS</div>
+                    <div class="text-3xl font-bold text-purple-400" id="chronotonDisplay">0</div>
+                    <div class="text-[10px] text-purple-300" id="chronoMultDisplay">+0% BONUS</div>
+                </div>
+
+                <!-- Spacer if chrono hidden -->
+                <div id="chronoSpacer" class="col-span-1 border-x border-gray-800 flex items-center justify-center">
+                    <div class="text-xs text-gray-700">LOCKED</div>
+                </div>
+
+                <div class="col-span-1">
                     <div class="text-xs text-gray-500">CLOCKS</div>
-                    <div class="text-4xl font-bold text-yellow-300" id="clocksDisplay">0</div>
+                    <div class="text-3xl font-bold text-yellow-300" id="clocksDisplay">0</div>
                     <div class="text-xs">CURRENCY</div>
                 </div>
             </div>
@@ -140,8 +197,12 @@
         <!-- Prestige Block -->
         <div id="prestigeSection" class="hidden box border-purple-500 text-center">
             <h3 class="text-purple-400 font-bold mb-2">THE CHRONOTON TIME MACHINE</h3>
-            <p class="text-xs mb-4">Reset your game to acquire Chronotons. You earn 1 Chronoton for every 1,000 TOTAL seconds you have wasted(spending doesn't matter). Each chronoton gives you a permanent 10% boost for seconds gain. </p>
-            <div class="text-xl mb-4" id="chronotonDisplay">0 CHRONOTONS</div>
+            <p class="text-xs mb-4">
+                The machine hums with energy. Reset your run to acquire Chronotons.
+                <br>REQ: 25,000 LIFETIME SECONDS.
+                <br>EFFECT: +250% (2.5x) SPEED PER CHRONOTON.
+            </p>
+            <div id="potentialChrono" class="text-lg mb-4 text-white">REWARD: 0 CHRONOTONS</div>
             <button onclick="prestige()" class="btn w-full border-purple-500 text-purple-400 hover:bg-purple-900">
                 [ACTIVATE TIME MACHINE]
             </button>
@@ -177,9 +238,10 @@
         // --- Configuration ---
         const CONFIG = {
             BASE_CONVERSION: 100,
-            CONVERSION_SCALE: 1.10, // 10% increase
-            OFFLINE_RATE: 5, // 5 seconds per minute base
-            SAVE_KEY: 'timeWaster_low_v1'
+            CONVERSION_SCALE: 1.01,
+            OFFLINE_RATE: 5, 
+            CHRONO_THRESHOLD: 25000,
+            SAVE_KEY: 'timeWaster_v3_boredom'
         };
 
         const assets = {
@@ -195,8 +257,10 @@
             clocks: 0,
             multiplier: 1,
             chronotons: 0,
-            totalSecondsWasted: 0,
-            conversions: 0, // Track how many times we converted
+            prestigeCount: 0,
+            totalSecondsWasted: 0, 
+            runSecondsWasted: 0,   
+            conversions: 0, 
             lastSaveTime: Date.now(),
             shopCounts: {
                 gears: 0,
@@ -207,7 +271,9 @@
                 bg: false,
                 dvd: false,
                 chat: false,
-                rock: false
+                rock: false,
+                bubble: false,
+                draw: false
             }
         };
 
@@ -218,21 +284,25 @@
             { t: 300, title: "IDLER" },
             { t: 1000, title: "SLACKER" },
             { t: 3600, title: "PROCRASTINATOR" },
+            { t: 25000, title: "CHRONO-SCOUT" },
             { t: 86400, title: "TIME BANDIT" },
             { t: 1000000, title: "ENTROPY GOD" }
         ];
 
         const SHOP = [
-            { id: 'gears', name: 'RUSTY GEARS', cost: 1, mult: 1.5, power: 0.5 },
-            { id: 'chrono', name: 'DIGITAL WATCH', cost: 10, mult: 1.6, power: 2.0 },
-            { id: 'machine', name: 'FLUX CAPACITOR', cost: 50, mult: 1.7, power: 10.0 }
+            { id: 'gears', name: 'RUSTY GEARS', desc: '+0.5 sec/s', cost: 1, mult: 1.5, power: 0.5 },
+            { id: 'chrono', name: 'DIGITAL WATCH', desc: '+2.0 sec/s', cost: 10, mult: 1.6, power: 2.0 },
+            { id: 'machine', name: 'FLUX CAPACITOR', desc: '+10.0 sec/s', cost: 50, mult: 1.7, power: 10.0 }
         ];
 
+        // Currency: 'c' = clocks, 'k' = chronotons
         const DISTRACTIONS = [
-            { id: 'bg', name: 'COLOR_SHIFT', cost: 5, action: () => changeBg() },
-            { id: 'dvd', name: 'DVD_SCREEN', cost: 15, action: () => toggleDVD() },
-            { id: 'chat', name: 'CHAT_ROOM', cost: 25, action: () => renderChat() },
-            { id: 'rock', name: 'PET_ROCK', cost: 10, action: () => renderRock() }
+            { id: 'bg', name: 'COLOR_SHIFT', desc: 'Change Bg', cost: 1, curr: 'c', action: () => changeBg() },
+            { id: 'rock', name: 'PET_ROCK', desc: 'Feed Clocks', cost: 10, curr: 'c', action: () => renderRock() },
+            { id: 'dvd', name: 'DVD_SCREEN', desc: 'Bouncing Logo', cost: 15, curr: 'c', action: () => toggleDVD() },
+            { id: 'chat', name: 'LIVESTREAM', desc: 'Read Spam', cost: 25, curr: 'c', action: () => renderChat() },
+            { id: 'bubble', name: 'BUBBLE WRAP', desc: 'Pop pop pop', cost: 50, curr: 'c', action: () => renderBubble() },
+            { id: 'draw', name: 'DRAWING PAD', desc: 'Useless Art', cost: 1, curr: 'k', action: () => renderDraw() }
         ];
 
         // --- DOM ---
@@ -251,7 +321,13 @@
             cvs: document.getElementById('boredomCanvas'),
             prestige: document.getElementById('prestigeSection'),
             chrono: document.getElementById('chronotonDisplay'),
-            offline: document.getElementById('offlineBadge')
+            chronoCol: document.getElementById('chronoColumn'),
+            chronoSpc: document.getElementById('chronoSpacer'),
+            chronoMult: document.getElementById('chronoMultDisplay'),
+            potChrono: document.getElementById('potentialChrono'),
+            offline: document.getElementById('offlineBadge'),
+            chronoTotal: document.getElementById('chronoTotalDisplay'),
+            runTotal: document.getElementById('runTotalDisplay')
         };
 
         // --- Loop ---
@@ -271,16 +347,19 @@
             });
             
             // Apply Multipliers
-            const prestigeMult = 1 + (state.chronotons * 0.1);
+            const prestigeMult = 1 + (state.chronotons * 2.5); 
             const realWorldMult = getRealWorldMult();
             const finalRate = baseRate * prestigeMult * realWorldMult;
 
+            const gain = finalRate * dt;
+
             // Add Time
-            state.seconds += finalRate * dt;
-            state.totalSecondsWasted += finalRate * dt;
+            state.seconds += gain;
+            state.totalSecondsWasted += gain;
+            state.runSecondsWasted += gain;
 
             // Updates
-            updateUI(finalRate);
+            updateUI(finalRate, prestigeMult);
             
             // Autosave (10s)
             saveTimer += dt;
@@ -289,10 +368,10 @@
                 saveTimer = 0;
             }
 
-            // Golden Seconds (Random spawn check)
+            // Golden Seconds
             goldenTimer += dt;
-            if (goldenTimer > 1) { // Check every second
-                if (Math.random() < 0.02) spawnGoldenSecond(); // 2% chance per second
+            if (goldenTimer > 1) { 
+                if (Math.random() < 0.02) spawnGoldenSecond(); 
                 goldenTimer = 0;
             }
 
@@ -311,11 +390,30 @@
             return Math.floor(CONFIG.BASE_CONVERSION * Math.pow(CONFIG.CONVERSION_SCALE, state.conversions));
         }
 
-        function updateUI(rate) {
+        function getPotentialChronotons() {
+            return Math.floor(state.totalSecondsWasted / CONFIG.CHRONO_THRESHOLD);
+        }
+
+        function updateUI(rate, pMult) {
             els.sec.innerText = state.seconds.toFixed(1);
             els.clk.innerText = state.clocks;
             els.rate.innerText = `+${rate.toFixed(1)}/s`;
             
+            els.chronoTotal.innerText = state.totalSecondsWasted.toFixed(1);
+            els.runTotal.innerText = state.runSecondsWasted.toFixed(1);
+
+            els.chrono.innerText = state.chronotons;
+            els.chronoMult.innerText = `+${Math.round((pMult - 1) * 100)}% BONUS`;
+
+            // Chronoton Visibility
+            if (state.prestigeCount > 0) {
+                els.chronoCol.classList.remove('hidden');
+                els.chronoSpc.classList.add('hidden');
+            } else {
+                els.chronoCol.classList.add('hidden');
+                els.chronoSpc.classList.remove('hidden');
+            }
+
             // Titles
             const rank = RANKS.findLast(r => state.totalSecondsWasted >= r.t) || RANKS[0];
             document.getElementById('rankTitle').innerText = `RANK: ${rank.title}`;
@@ -330,10 +428,15 @@
                 els.zone.classList.remove('opacity-50', 'pointer-events-none');
             }
 
-            // Prestige
-            if (state.totalSecondsWasted > 5000) {
+            // Prestige Availability
+            const potential = getPotentialChronotons();
+            const gain = Math.max(0, potential - state.chronotons);
+            
+            if (state.totalSecondsWasted >= CONFIG.CHRONO_THRESHOLD) {
                 els.prestige.classList.remove('hidden');
-                els.chrono.innerText = `${state.chronotons} CHRONOTONS`;
+                els.potChrono.innerText = `REWARD: ${gain} CHRONOTONS`;
+            } else {
+                els.prestige.classList.add('hidden');
             }
 
             // Shop Buttons
@@ -343,6 +446,18 @@
                     const price = Math.floor(item.cost * Math.pow(item.mult, state.shopCounts[item.id] || 0));
                     btn.disabled = state.clocks < price;
                     btn.querySelector('.price').innerText = price;
+                }
+            });
+            
+            // Distraction Buttons availability (visual only)
+            DISTRACTIONS.forEach(d => {
+                if (!state.unlocks[d.id]) {
+                    const btn = document.getElementById(`dist-btn-${d.id}`);
+                    if (btn) {
+                        const canAfford = d.curr === 'k' ? state.chronotons >= d.cost : state.clocks >= d.cost;
+                        btn.style.borderColor = canAfford ? '#ffffff' : '#555555';
+                        btn.style.color = canAfford ? '#ffffff' : '#555555';
+                    }
                 }
             });
         }
@@ -356,7 +471,7 @@
                 state.clocks++;
                 state.conversions++;
                 log(`CONVERTED. RATE INCREASED. NEW COST: ${getConversionCost()}`);
-                renderShop(); // Update shop incase buttons need to enable
+                renderShop();
                 renderDistractions();
             } else {
                 els.msgConv.style.opacity = 1;
@@ -382,14 +497,32 @@
         window.buyDist = function(id) {
             const d = DISTRACTIONS.find(x => x.id === id);
             if (!state.unlocks[id]) {
-                if (state.clocks >= d.cost) {
-                    state.clocks -= d.cost;
-                    state.unlocks[id] = true;
-                    log(`UNLOCKED ${d.name}`);
-                    saveGame();
-                    renderDistractions();
+                // Buying Logic
+                if (d.curr === 'k') {
+                    // Chronoton cost
+                    if (state.chronotons >= d.cost) {
+                        state.chronotons -= d.cost;
+                        state.unlocks[id] = true;
+                        log(`UNLOCKED ${d.name}`);
+                        saveGame();
+                        renderDistractions();
+                    } else {
+                        log("NOT ENOUGH CHRONOTONS");
+                    }
+                } else {
+                    // Clock cost
+                    if (state.clocks >= d.cost) {
+                        state.clocks -= d.cost;
+                        state.unlocks[id] = true;
+                        log(`UNLOCKED ${d.name}`);
+                        saveGame();
+                        renderDistractions();
+                    } else {
+                        log("NOT ENOUGH CLOCKS");
+                    }
                 }
             } else {
+                // Launch Logic
                 d.action();
             }
         };
@@ -404,23 +537,31 @@
         };
 
         window.prestige = function() {
-            if (!confirm("RESET TIME LINE?")) return;
-            const gain = Math.floor(state.totalSecondsWasted / 1000);
-            const newChrono = Math.max(0, gain - state.chronotons);
+            const potential = getPotentialChronotons();
+            const gain = Math.max(0, potential - state.chronotons);
             
-            state.chronotons += newChrono;
+            if (gain <= 0) {
+                alert("YOU NEED MORE LIFETIME SECONDS TO GAIN A CHRONOTON.");
+                return;
+            }
+
+            if (!confirm(`RESET RUN? YOU WILL GAIN ${gain} CHRONOTONS.`)) return;
+            
+            state.chronotons += gain;
+            state.prestigeCount++;
             state.seconds = 0;
+            state.runSecondsWasted = 0; 
             state.clocks = 0;
             state.conversions = 0;
             state.shopCounts = { gears: 0, chrono: 0, machine: 0 };
             
-            log(`PRESTIGE COMPLETE. +${newChrono} CHRONOTONS.`);
+            log(`PRESTIGE COMPLETE. +${gain} CHRONOTONS.`);
             saveGame();
             renderShop();
             renderDistractions();
         };
 
-        // --- Features ---
+        // --- Minigame Features ---
 
         function spawnGoldenSecond() {
             const el = document.createElement('div');
@@ -429,71 +570,150 @@
             el.style.left = Math.random() * 80 + 10 + "%";
             
             el.onclick = () => {
+                el.classList.add('captured');
+                el.innerText = "CAPTURED!";
                 state.seconds += 60;
+                state.totalSecondsWasted += 60;
+                state.runSecondsWasted += 60;
                 log("CAPTURED GOLDEN SECOND (+60s)");
-                el.remove();
+                setTimeout(() => el.remove(), 500);
             };
             
             document.body.appendChild(el);
-            setTimeout(() => el.remove(), 4000);
+            setTimeout(() => {
+                if(el.parentNode && !el.classList.contains('captured')) el.remove();
+            }, 4000);
         }
 
-        // Chat Simulator
-        const CHAT_NAMES = ["Mom", "Boss", "SpamBot_99", "Unknown", "TimeCop", "John_Doe", "Friend123", "System", "FREEMONEYINBIO" ];
-        const CHAT_MSGS = [
-            "Why aren't you working?",
-            "You have won a free iPhone! Click here.",
-            "Please submit the report.",
-            "Is this game even fun?",
-            "Wake up.",
-            "Stop wasting time.",
-            "Just 5 more minutes..."
-        ];
+        // --- Boredom Zone Renderers ---
 
         function renderChat() {
+            const NAMES = ["Streamer69", "Bot_1", "Mod_Dave", "User99", "Troll", "Fan1"];
+            const MSGS = ["POG", "LUL", "Skip", "Is this live?", "Notice me", "F", "Lag", "Play Minecraft"];
+            
             els.mini.innerHTML = `
                 <div class="p-2 h-40 flex flex-col">
-                    <div class="border-b border-white mb-2 font-bold">AOL_MESSENGER_V1.0</div>
-                    <div id="chatBox" class="flex-1 overflow-y-auto text-xs space-y-2 mb-2"></div>
-                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="text-xs hover:bg-white hover:text-black border border-white p-1">CLOSE_CONNECTION</button>
+                    <div class="border-b border-white mb-2 font-bold flex justify-between">
+                        <span>LIVESTREAM_CHAT</span>
+                        <span class="text-red-500 text-[10px] animate-pulse">● LIVE</span>
+                    </div>
+                    <div id="chatBox" class="flex-1 overflow-y-auto text-xs space-y-1 mb-2 bg-gray-900 p-1"></div>
+                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="text-xs border border-white p-1">LEAVE STREAM</button>
                 </div>
             `;
             
             const box = document.getElementById('chatBox');
-            // Add initial message
-            addChatMsg(box);
             
-            // Randomly add messages
-            const interval = setInterval(() => {
-                if (!document.getElementById('chatBox')) {
-                    clearInterval(interval);
-                    return;
-                }
-                if (Math.random() > 0.6) addChatMsg(box);
-            }, 2000);
-        }
-
-        function addChatMsg(box) {
-            const name = CHAT_NAMES[Math.floor(Math.random() * CHAT_NAMES.length)];
-            const msg = CHAT_MSGS[Math.floor(Math.random() * CHAT_MSGS.length)];
-            const line = document.createElement('div');
-            line.className = "chat-msg";
-            line.innerHTML = `<span class="text-blue-400 font-bold">${name}:</span> ${msg}`;
-            box.appendChild(line);
-            box.scrollTop = box.scrollHeight;
+            const addMsg = () => {
+                if (!document.getElementById('chatBox')) return;
+                const name = NAMES[Math.floor(Math.random() * NAMES.length)];
+                const msg = MSGS[Math.floor(Math.random() * MSGS.length)];
+                const color = `hsl(${Math.random()*360}, 70%, 70%)`;
+                box.innerHTML += `<div class="break-words"><span style="color:${color}">${name}:</span> ${msg}</div>`;
+                box.scrollTop = box.scrollHeight;
+                if(box.children.length > 20) box.firstChild.remove();
+                setTimeout(addMsg, Math.random() * 1000 + 500);
+            };
+            addMsg();
         }
 
         function renderRock() {
             els.mini.innerHTML = `
                 <div class="p-4 text-center">
-                    <div>🪨</div>
-                    <div class="text-xs my-2">IT IS A ROCK. IT DOES NOTHING.</div>
-                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="btn text-xs">OKAY</button>
+                    <div class="text-4xl mb-2">🪨</div>
+                    <div class="text-xs my-2">THE ROCK STARES INTO YOUR SOUL.</div>
+                    <button onclick="feedRock()" class="btn text-xs mb-2">FEED (1 CLOCK)</button>
+                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="btn text-xs border-red-500 text-red-500">LEAVE</button>
                 </div>
             `;
         }
 
-        // --- Renderers ---
+        window.feedRock = function() {
+            if (state.clocks >= 1) {
+                state.clocks--;
+                log("YOU FED THE ROCK. IT IS NOT IMPRESSED.");
+            } else {
+                log("YOU CANNOT AFFORD TO FEED THE ROCK.");
+            }
+        }
+
+        function renderBubble() {
+            els.mini.innerHTML = `
+                <div class="p-2">
+                    <div class="text-center font-bold mb-2">BUBBLE WRAP</div>
+                    <div id="bubbleGrid" class="grid grid-cols-8 gap-2 justify-center bg-gray-900 p-2"></div>
+                    <button onclick="renderBubble()" class="btn w-full mt-2 text-xs">RESET WRAP</button>
+                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="btn w-full mt-2 text-xs border-red-500 text-red-500">CLOSE</button>
+                </div>
+            `;
+            const grid = document.getElementById('bubbleGrid');
+            for(let i=0; i<24; i++) {
+                const b = document.createElement('div');
+                b.className = 'bubble';
+                b.onclick = function() {
+                    if(!this.classList.contains('popped')) {
+                        this.classList.add('popped');
+                        // Simulated pop sound effect via log
+                        // log("POP");
+                    }
+                }
+                grid.appendChild(b);
+            }
+        }
+
+        function renderDraw() {
+            els.mini.innerHTML = `
+                <div class="p-2 flex flex-col items-center">
+                    <div class="font-bold mb-2">DRAWING PAD</div>
+                    <canvas id="drawCanvas" width="250" height="200"></canvas>
+                    <div class="flex gap-2 mt-2 w-full">
+                        <button onclick="clearDraw()" class="btn flex-1 text-xs">CLEAR</button>
+                        <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="btn flex-1 text-xs border-red-500 text-red-500">CLOSE</button>
+                    </div>
+                </div>
+            `;
+            initDraw();
+        }
+
+        function initDraw() {
+            const c = document.getElementById('drawCanvas');
+            const ctx = c.getContext('2d');
+            let painting = false;
+
+            function start(e) { painting = true; draw(e); }
+            function end() { painting = false; ctx.beginPath(); }
+            function draw(e) {
+                if (!painting) return;
+                const rect = c.getBoundingClientRect();
+                const x = (e.clientX || e.touches[0].clientX) - rect.left;
+                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#fff';
+                
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+
+            c.onmousedown = start;
+            c.onmouseup = end;
+            c.onmousemove = draw;
+            
+            c.ontouchstart = (e) => { e.preventDefault(); start(e); };
+            c.ontouchend = (e) => { e.preventDefault(); end(e); };
+            c.ontouchmove = (e) => { e.preventDefault(); draw(e); };
+        }
+
+        window.clearDraw = function() {
+            const c = document.getElementById('drawCanvas');
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0,0,c.width, c.height);
+        }
+
+        // --- Main Renderers ---
 
         function renderShop() {
             els.shop.innerHTML = '';
@@ -506,10 +726,11 @@
                 div.innerHTML = `
                     <div class="text-xs">
                         <div class="font-bold text-yellow-200">${item.name}</div>
+                        <div class="text-gray-400 text-[10px]">${item.desc}</div>
                         <div>OWNED: ${count}</div>
                     </div>
-                    <button id="btn-${item.id}" onclick="buy('${item.id}')" class="btn text-xs">
-                        BUY (<span class="price">${cost}</span>)
+                    <button id="btn-${item.id}" onclick="buy('${item.id}')" class="btn text-xs text-right">
+                        BUY <br>(<span class="price">${cost}</span>)
                     </button>
                 `;
                 els.shop.appendChild(div);
@@ -521,14 +742,31 @@
             DISTRACTIONS.forEach(d => {
                 const unlocked = state.unlocks[d.id];
                 const div = document.createElement('div');
-                div.className = `box flex flex-col items-center justify-center cursor-pointer ${unlocked ? 'border-blue-400 text-blue-400' : 'border-gray-600 text-gray-600'}`;
+                // Dynamic border based on state
+                let borderClass = 'border-gray-600 text-gray-600';
+                if(unlocked) borderClass = 'border-blue-400 text-blue-400';
                 
+                div.className = `box flex flex-col items-center justify-center p-2 text-center ${borderClass}`;
+                div.id = `dist-btn-${d.id}`;
+                
+                const costLabel = d.curr === 'k' ? `${d.cost} CHRONO` : `${d.cost} CLOCKS`;
+                const costColor = d.curr === 'k' ? 'text-purple-400' : 'text-yellow-200';
+
                 if (unlocked) {
-                    div.innerHTML = `<div class="font-bold">${d.name}</div><div class="text-[10px]">LAUNCH</div>`;
+                    div.innerHTML = `
+                        <div class="font-bold text-xs">${d.name}</div>
+                        <div class="text-[10px] italic mb-1">${d.desc}</div>
+                        <div class="text-[10px] font-bold border border-current px-2 py-1 hover:bg-white hover:text-black cursor-pointer w-full">LAUNCH</div>`;
+                    div.onclick = () => d.action();
                 } else {
-                    div.innerHTML = `<div class="font-bold">???</div><div class="text-[10px]">${d.cost} CLOCKS</div>`;
+                    div.innerHTML = `
+                        <div class="font-bold text-xs">LOCKED</div>
+                        <div class="text-[10px] italic mb-1">${d.name}</div>
+                        <div class="text-[10px] font-bold border border-gray-600 px-2 py-1 w-full ${costColor}">
+                            [BUY: ${costLabel}]
+                        </div>`;
+                    div.onclick = () => buyDist(d.id);
                 }
-                div.onclick = () => buyDist(d.id);
                 els.dist.appendChild(div);
             });
         }
@@ -564,14 +802,14 @@
                     const diffMins = Math.floor(diffMs / 60000);
                     
                     if (diffMins > 0) {
-                        // Formula: Minutes * (Base 5 + Upgrades)
-                        // Count upgrades for bonus
                         const totalUpgrades = Object.values(state.shopCounts).reduce((a,b)=>a+b,0);
                         const ratePerMin = CONFIG.OFFLINE_RATE + (totalUpgrades * 0.5);
                         const gain = Math.floor(diffMins * ratePerMin);
                         
                         state.seconds += gain;
                         state.totalSecondsWasted += gain;
+                        if(typeof state.runSecondsWasted === 'undefined') state.runSecondsWasted = 0;
+                        state.runSecondsWasted += gain;
                         
                         els.offline.classList.remove('hidden');
                         document.getElementById('offlineGain').innerText = gain;
@@ -581,8 +819,12 @@
                     console.error("Save Error", e);
                 }
             }
-            // Ensure compatibility if new fields added
-            if(!state.conversions) state.conversions = 0;
+            
+            // Fix new fields if missing
+            if(typeof state.prestigeCount === 'undefined') state.prestigeCount = 0;
+            // Backwards compatibility for unlocks
+            if(!state.unlocks.bubble) state.unlocks.bubble = false;
+            if(!state.unlocks.draw) state.unlocks.draw = false;
             
             renderShop();
             renderDistractions();
