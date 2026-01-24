@@ -129,7 +129,17 @@
     <audio id="bgMusic" loop src="timewasted.mp3"></audio>
     <canvas id="boredomCanvas"></canvas>
 
-    <div class="content-layer w-full max-w-3xl">
+    <!-- Desktop Sidebars (Visible on XL screens) -->
+    <div id="desktopSidebarLeft" class="hidden xl:flex fixed left-4 top-24 bottom-4 w-56 flex-col gap-2 overflow-y-auto z-20 opacity-50 pointer-events-none transition-opacity">
+        <div class="text-xs font-bold border-b border-white mb-2 pb-1">BOREDOM ZONE (L)</div>
+        <!-- Content injected by JS -->
+    </div>
+    <div id="desktopSidebarRight" class="hidden xl:flex fixed right-4 top-24 bottom-4 w-56 flex-col gap-2 overflow-y-auto z-20 opacity-50 pointer-events-none transition-opacity">
+        <div class="text-xs font-bold border-b border-white mb-2 pb-1">BOREDOM ZONE (R)</div>
+        <!-- Content injected by JS -->
+    </div>
+
+    <div class="content-layer w-full max-w-3xl z-10">
         
         <!-- Header -->
         <header class="text-center mb-8 border-b-2 border-white pb-4">
@@ -199,7 +209,7 @@
             <h3 class="text-purple-400 font-bold mb-2">THE CHRONOTON TIME MACHINE</h3>
             <p class="text-xs mb-4">
                 The machine hums with energy. Reset your run to acquire Chronotons.
-                <br>REQ: 25,000 LIFETIME SECONDS.
+                <br>REQ: <span id="nextChronoReq">25,000</span> LIFETIME SECONDS.
                 <br>EFFECT: +100x SPEED PER CHRONOTON.
             </p>
             <div id="potentialChrono" class="text-lg mb-4 text-white">REWARD: 0 CHRONOTONS</div>
@@ -219,10 +229,12 @@
 
             <!-- Boredom Zone -->
             <div id="boredomSection" class="opacity-50 pointer-events-none transition-opacity">
-                <h2 class="font-bold border-b-2 border-white mb-2">BOREDOM ZONE</h2>
-                <div id="distractionGrid" class="grid grid-cols-2 gap-2"></div>
+                <!-- Mobile Title -->
+                <h2 class="font-bold border-b-2 border-white mb-2 xl:hidden">BOREDOM ZONE</h2>
+                <!-- Mobile Grid (Hidden on XL) -->
+                <div id="distractionGrid" class="grid grid-cols-2 gap-2 xl:hidden"></div>
                 
-                <!-- Active Minigame Area -->
+                <!-- Active Minigame Area (Always Center) -->
                 <div id="activeMinigame" class="mt-4 empty:hidden box border-dashed"></div>
             </div>
         </div>
@@ -241,6 +253,7 @@
             CONVERSION_SCALE: 1.01,
             OFFLINE_RATE: 5, 
             CHRONO_THRESHOLD: 25000,
+            CHRONO_SCALE: 100, // Multiplier for next chronoton cost
             SAVE_KEY: 'timeWaster_v3_boredom'
         };
 
@@ -315,6 +328,8 @@
             msgConv: document.getElementById('convertMsg'),
             shop: document.getElementById('shopGrid'),
             dist: document.getElementById('distractionGrid'),
+            deskLeft: document.getElementById('desktopSidebarLeft'),
+            deskRight: document.getElementById('desktopSidebarRight'),
             log: document.getElementById('gameLog'),
             zone: document.getElementById('boredomSection'),
             mini: document.getElementById('activeMinigame'),
@@ -390,8 +405,8 @@
             return Math.floor(CONFIG.BASE_CONVERSION * Math.pow(CONFIG.CONVERSION_SCALE, state.conversions));
         }
 
-        function getPotentialChronotons() {
-            return Math.floor(state.totalSecondsWasted / CONFIG.CHRONO_THRESHOLD);
+        function getNextChronoCost() {
+            return CONFIG.CHRONO_THRESHOLD * Math.pow(CONFIG.CHRONO_SCALE, state.chronotons);
         }
 
         function updateUI(rate, pMult) {
@@ -423,18 +438,24 @@
             els.costConv.innerText = cost;
             els.btnConv.disabled = state.seconds < cost;
 
-            // Unlock Shop
+            // Unlock Shop & Zones
             if (state.clocks > 0 || state.totalSecondsWasted > 50) {
                 els.zone.classList.remove('opacity-50', 'pointer-events-none');
+                els.deskLeft.classList.remove('opacity-50', 'pointer-events-none');
+                els.deskRight.classList.remove('opacity-50', 'pointer-events-none');
             }
 
             // Prestige Availability
-            const potential = getPotentialChronotons();
-            const gain = Math.max(0, potential - state.chronotons);
+            const nextCost = getNextChronoCost();
+            const canPrestige = state.totalSecondsWasted >= nextCost;
             
-            if (state.totalSecondsWasted >= CONFIG.CHRONO_THRESHOLD) {
+            // Update Requirement Text
+            const reqDisplay = document.getElementById('nextChronoReq');
+            if(reqDisplay) reqDisplay.innerText = nextCost.toLocaleString();
+
+            if (canPrestige) {
                 els.prestige.classList.remove('hidden');
-                els.potChrono.innerText = `REWARD: ${gain} CHRONOTONS`;
+                els.potChrono.innerText = `REWARD: 1 CHRONOTON`;
             } else {
                 els.prestige.classList.add('hidden');
             }
@@ -449,15 +470,17 @@
                 }
             });
             
-            // Distraction Buttons availability (visual only)
+            // Distraction Buttons availability (visual only) - Updates both Mobile and Desktop versions
             DISTRACTIONS.forEach(d => {
                 if (!state.unlocks[d.id]) {
-                    const btn = document.getElementById(`dist-btn-${d.id}`);
-                    if (btn) {
-                        const canAfford = d.curr === 'k' ? state.chronotons >= d.cost : state.clocks >= d.cost;
-                        btn.style.borderColor = canAfford ? '#ffffff' : '#555555';
-                        btn.style.color = canAfford ? '#ffffff' : '#555555';
-                    }
+                    ['mob', 'desk'].forEach(suffix => {
+                        const btn = document.getElementById(`dist-btn-${d.id}-${suffix}`);
+                        if (btn) {
+                            const canAfford = d.curr === 'k' ? state.chronotons >= d.cost : state.clocks >= d.cost;
+                            btn.style.borderColor = canAfford ? '#ffffff' : '#555555';
+                            btn.style.color = canAfford ? '#ffffff' : '#555555';
+                        }
+                    });
                 }
             });
         }
@@ -537,17 +560,16 @@
         };
 
         window.prestige = function() {
-            const potential = getPotentialChronotons();
-            const gain = Math.max(0, potential - state.chronotons);
+            const cost = getNextChronoCost();
             
-            if (gain <= 0) {
+            if (state.totalSecondsWasted < cost) {
                 alert("YOU NEED MORE LIFETIME SECONDS TO GAIN A CHRONOTON.");
                 return;
             }
 
-            if (!confirm(`RESET RUN? YOU WILL GAIN ${gain} CHRONOTONS.`)) return;
+            if (!confirm(`RESET RUN? YOU WILL GAIN 1 CHRONOTON.`)) return;
             
-            state.chronotons += gain;
+            state.chronotons += 1;
             state.prestigeCount++;
             state.seconds = 0;
             state.runSecondsWasted = 0; 
@@ -555,7 +577,7 @@
             state.conversions = 0;
             state.shopCounts = { gears: 0, chrono: 0, machine: 0 };
             
-            log(`PRESTIGE COMPLETE. +${gain} CHRONOTONS.`);
+            log(`PRESTIGE COMPLETE. +1 CHRONOTON.`);
             saveGame();
             renderShop();
             renderDistractions();
@@ -737,37 +759,57 @@
             });
         }
 
-        function renderDistractions() {
-            els.dist.innerHTML = '';
-            DISTRACTIONS.forEach(d => {
-                const unlocked = state.unlocks[d.id];
-                const div = document.createElement('div');
-                // Dynamic border based on state
-                let borderClass = 'border-gray-600 text-gray-600';
-                if(unlocked) borderClass = 'border-blue-400 text-blue-400';
-                
-                div.className = `box flex flex-col items-center justify-center p-2 text-center ${borderClass}`;
-                div.id = `dist-btn-${d.id}`;
-                
-                const costLabel = d.curr === 'k' ? `${d.cost} CHRONO` : `${d.cost} CLOCKS`;
-                const costColor = d.curr === 'k' ? 'text-purple-400' : 'text-yellow-200';
+        // --- Distraction Card Generator (Shared) ---
+        function createDistCard(d, suffix) {
+            const unlocked = state.unlocks[d.id];
+            const div = document.createElement('div');
+            // Dynamic border based on state
+            let borderClass = 'border-gray-600 text-gray-600';
+            if(unlocked) borderClass = 'border-blue-400 text-blue-400';
+            
+            div.className = `box flex flex-col items-center justify-center p-2 text-center ${borderClass} transition-all`;
+            div.id = `dist-btn-${d.id}-${suffix}`;
+            
+            const costLabel = d.curr === 'k' ? `${d.cost} CHRONO` : `${d.cost} CLOCKS`;
+            const costColor = d.curr === 'k' ? 'text-purple-400' : 'text-yellow-200';
 
-                if (unlocked) {
-                    div.innerHTML = `
-                        <div class="font-bold text-xs">${d.name}</div>
-                        <div class="text-[10px] italic mb-1">${d.desc}</div>
-                        <div class="text-[10px] font-bold border border-current px-2 py-1 hover:bg-white hover:text-black cursor-pointer w-full">LAUNCH</div>`;
-                    div.onclick = () => d.action();
+            if (unlocked) {
+                div.innerHTML = `
+                    <div class="font-bold text-xs">${d.name}</div>
+                    <div class="text-[10px] italic mb-1">${d.desc}</div>
+                    <div class="text-[10px] font-bold border border-current px-2 py-1 hover:bg-white hover:text-black cursor-pointer w-full">LAUNCH</div>`;
+                div.onclick = () => d.action();
+            } else {
+                div.innerHTML = `
+                    <div class="font-bold text-xs">LOCKED</div>
+                    <div class="text-[10px] italic mb-1">${d.name}</div>
+                    <div class="text-[10px] font-bold border border-gray-600 px-2 py-1 w-full ${costColor}">
+                        [BUY: ${costLabel}]
+                    </div>`;
+                div.onclick = () => buyDist(d.id);
+            }
+            return div;
+        }
+
+        function renderDistractions() {
+            // Clear all containers
+            els.dist.innerHTML = '';
+            els.deskLeft.querySelectorAll('div:not(:first-child)').forEach(el => el.remove()); // Keep title
+            els.deskRight.querySelectorAll('div:not(:first-child)').forEach(el => el.remove()); // Keep title
+
+            DISTRACTIONS.forEach((d, index) => {
+                // 1. Mobile Render (Grid)
+                const mobEl = createDistCard(d, 'mob');
+                els.dist.appendChild(mobEl);
+
+                // 2. Desktop Render (Sidebars)
+                const deskEl = createDistCard(d, 'desk');
+                // Even items go Left, Odd items go Right
+                if (index % 2 === 0) {
+                    els.deskLeft.appendChild(deskEl);
                 } else {
-                    div.innerHTML = `
-                        <div class="font-bold text-xs">LOCKED</div>
-                        <div class="text-[10px] italic mb-1">${d.name}</div>
-                        <div class="text-[10px] font-bold border border-gray-600 px-2 py-1 w-full ${costColor}">
-                            [BUY: ${costLabel}]
-                        </div>`;
-                    div.onclick = () => buyDist(d.id);
+                    els.deskRight.appendChild(deskEl);
                 }
-                els.dist.appendChild(div);
             });
         }
 
@@ -890,4 +932,3 @@
 </body>
 
 </html>
-
