@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="icon.ico">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Time Waster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* LOW EFFORT UI THEME */
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000000;
+            color: #ffffff;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Brutalist Box Style */
+        .box {
+            border: 2px solid #ffffff;
+            background: #000000;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            background: #000000;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .btn:hover:not(:disabled) {
+            background: #ffffff;
+            color: #000000;
+        }
+        .btn:active:not(:disabled) {
+            transform: translate(2px, 2px);
+        }
+        .btn:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #000; border-left: 2px solid #fff; }
+        ::-webkit-scrollbar-thumb { background: #fff; }
+
+        /* Bouncing Box Canvas */
+        #boredomCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+        }
+        
+        .content-layer {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Golden Second Animation */
+        .golden-second {
+            position: fixed;
+            font-size: 2rem;
+            color: #ffd700;
+            cursor: pointer;
+            user-select: none;
+            animation: floatUp 4s linear forwards;
+            z-index: 50;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+
+        .chat-msg {
+            margin-bottom: 4px;
+            padding: 4px;
+            border-left: 2px solid #333;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+
+  <div id="startOverlay" class="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-pointer">
+    <div class="text-2xl border-2 border-white p-8 hover:bg-white hover:text-black">
+        CLICK TO START WASTING TIME
+    </div>
+  </div>
+    <!-- Assets -->
+    <audio id="bgMusic" loop src="timewasted.mp3"></audio>
+    <canvas id="boredomCanvas"></canvas>
+
+    <div class="content-layer w-full max-w-3xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8 border-b-2 border-white pb-4">
+            <h1 class="text-4xl font-bold uppercase tracking-tighter">THE TIME WASTER</h1>
+            <div class="text-xs mt-2" id="rankTitle">RANK: NOVICE</div>
+            
+            <div class="flex justify-center gap-4 mt-4">
+                <button onclick="toggleMusic()" class="btn text-xs">[TOGGLE MUSIC]</button>
+                <button onclick="triggerReset()" class="btn text-xs hover:bg-red-600 hover:text-white border-red-500 text-red-500">[HARD RESET]</button>
+            </div>
+            
+            <div id="offlineBadge" class="hidden mt-4 border border-green-500 text-green-500 p-2 text-xs">
+                OFFLINE PROGRESS: GAINED <span id="offlineGain">0</span> SECONDS
+            </div>
+        </header>
+
+        <!-- Stats Block -->
+        <div class="box flex flex-col items-center">
+            <div class="grid grid-cols-2 w-full gap-4 text-center mb-6">
+                <div>
+                    <div class="text-xs text-gray-500">TIME WASTED</div>
+                    <div class="text-4xl font-bold" id="secondsDisplay">0.0</div>
+                    <div class="text-xs" id="rateDisplay">+0.0/s</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500">CLOCKS</div>
+                    <div class="text-4xl font-bold text-yellow-300" id="clocksDisplay">0</div>
+                    <div class="text-xs">CURRENCY</div>
+                </div>
+            </div>
+
+            <button id="convertBtn" class="btn w-full py-4 text-lg border-dashed">
+                CONVERT <span id="convertCost">100</span>s -> 1 CLOCK
+            </button>
+            <div id="convertMsg" class="h-4 text-xs text-red-500 mt-2 text-center opacity-0">INSUFFICIENT FUNDS</div>
+        </div>
+
+        <!-- Prestige Block -->
+        <div id="prestigeSection" class="hidden box border-purple-500 text-center">
+            <h3 class="text-purple-400 font-bold mb-2">TEMPORAL DISPLACEMENT</h3>
+            <p class="text-xs mb-4">Reset logic to acquire Chronotons.</p>
+            <div class="text-xl mb-4" id="chronotonDisplay">0 CHRONOTONS</div>
+            <button onclick="prestige()" class="btn w-full border-purple-500 text-purple-400 hover:bg-purple-900">
+                [ACTIVATE TIME MACHINE]
+            </button>
+        </div>
+
+        <!-- Layout Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Shop -->
+            <div>
+                <h2 class="font-bold border-b-2 border-white mb-2">SHOP</h2>
+                <div id="shopGrid" class="space-y-2"></div>
+            </div>
+
+            <!-- Boredom Zone -->
+            <div id="boredomSection" class="opacity-50 pointer-events-none transition-opacity">
+                <h2 class="font-bold border-b-2 border-white mb-2">BOREDOM ZONE</h2>
+                <div id="distractionGrid" class="grid grid-cols-2 gap-2"></div>
+                
+                <!-- Active Minigame Area -->
+                <div id="activeMinigame" class="mt-4 empty:hidden box border-dashed"></div>
+            </div>
+        </div>
+
+        <!-- Log -->
+        <div class="box mt-4 h-32 overflow-y-auto text-xs font-mono text-gray-400" id="gameLog">
+            <div>> SYSTEM_READY...</div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const CONFIG = {
+            BASE_CONVERSION: 100,
+            CONVERSION_SCALE: 1.10, // 10% increase
+            OFFLINE_RATE: 5, // 5 seconds per minute base
+            SAVE_KEY: 'timeWaster_low_v1'
+        };
+
+        const assets = {
+            dvd: new Image(),
+            music: document.getElementById('bgMusic')
+        };
+        assets.dvd.src = 'dvdlogo.png';
+        assets.music.play();
+        
+        // --- State ---
+        let state = {
+            seconds: 0,
+            clocks: 0,
+            multiplier: 1,
+            chronotons: 0,
+            totalSecondsWasted: 0,
+            conversions: 0, // Track how many times we converted
+            lastSaveTime: Date.now(),
+            shopCounts: {
+                gears: 0,
+                chrono: 0,
+                machine: 0
+            },
+            unlocks: {
+                bg: false,
+                dvd: false,
+                chat: false,
+                rock: false
+            }
+        };
+
+        // --- Data ---
+        const RANKS = [
+            { t: 0, title: "NOVICE" },
+            { t: 60, title: "WASTER" },
+            { t: 300, title: "IDLER" },
+            { t: 1000, title: "SLACKER" },
+            { t: 3600, title: "PROCRASTINATOR" },
+            { t: 86400, title: "TIME BANDIT" },
+            { t: 1000000, title: "ENTROPY GOD" }
+        ];
+
+        const SHOP = [
+            { id: 'gears', name: 'RUSTY GEARS', cost: 1, mult: 1.5, power: 0.5 },
+            { id: 'chrono', name: 'DIGITAL WATCH', cost: 10, mult: 1.6, power: 2.0 },
+            { id: 'machine', name: 'FLUX CAPACITOR', cost: 50, mult: 1.7, power: 10.0 }
+        ];
+
+        const DISTRACTIONS = [
+            { id: 'bg', name: 'COLOR_SHIFT', cost: 5, action: () => changeBg() },
+            { id: 'dvd', name: 'DVD_SCREEN', cost: 15, action: () => toggleDVD() },
+            { id: 'chat', name: 'CHAT_ROOM', cost: 25, action: () => renderChat() },
+            { id: 'rock', name: 'PET_ROCK', cost: 10, action: () => renderRock() }
+        ];
+
+        // --- DOM ---
+        const els = {
+            sec: document.getElementById('secondsDisplay'),
+            clk: document.getElementById('clocksDisplay'),
+            rate: document.getElementById('rateDisplay'),
+            btnConv: document.getElementById('convertBtn'),
+            costConv: document.getElementById('convertCost'),
+            msgConv: document.getElementById('convertMsg'),
+            shop: document.getElementById('shopGrid'),
+            dist: document.getElementById('distractionGrid'),
+            log: document.getElementById('gameLog'),
+            zone: document.getElementById('boredomSection'),
+            mini: document.getElementById('activeMinigame'),
+            cvs: document.getElementById('boredomCanvas'),
+            prestige: document.getElementById('prestigeSection'),
+            chrono: document.getElementById('chronotonDisplay'),
+            offline: document.getElementById('offlineBadge')
+        };
+
+        // --- Loop ---
+        let lastTime = Date.now();
+        let saveTimer = 0;
+        let goldenTimer = 0;
+
+        function gameLoop() {
+            const now = Date.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            // Calc Rate
+            let baseRate = 1;
+            SHOP.forEach(item => {
+                baseRate += (state.shopCounts[item.id] || 0) * item.power;
+            });
+            
+            // Apply Multipliers
+            const prestigeMult = 1 + (state.chronotons * 0.1);
+            const realWorldMult = getRealWorldMult();
+            const finalRate = baseRate * prestigeMult * realWorldMult;
+
+            // Add Time
+            state.seconds += finalRate * dt;
+            state.totalSecondsWasted += finalRate * dt;
+
+            // Updates
+            updateUI(finalRate);
+            
+            // Autosave (10s)
+            saveTimer += dt;
+            if (saveTimer > 10) {
+                saveGame();
+                saveTimer = 0;
+            }
+
+            // Golden Seconds (Random spawn check)
+            goldenTimer += dt;
+            if (goldenTimer > 1) { // Check every second
+                if (Math.random() < 0.02) spawnGoldenSecond(); // 2% chance per second
+                goldenTimer = 0;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Logic ---
+
+        function getRealWorldMult() {
+            const h = new Date().getHours();
+            if (h >= 1 && h < 4) return 2.0; // Night
+            return 1.0;
+        }
+
+        function getConversionCost() {
+            return Math.floor(CONFIG.BASE_CONVERSION * Math.pow(CONFIG.CONVERSION_SCALE, state.conversions));
+        }
+
+        function updateUI(rate) {
+            els.sec.innerText = state.seconds.toFixed(1);
+            els.clk.innerText = state.clocks;
+            els.rate.innerText = `+${rate.toFixed(1)}/s`;
+            
+            // Titles
+            const rank = RANKS.findLast(r => state.totalSecondsWasted >= r.t) || RANKS[0];
+            document.getElementById('rankTitle').innerText = `RANK: ${rank.title}`;
+
+            // Convert Button
+            const cost = getConversionCost();
+            els.costConv.innerText = cost;
+            els.btnConv.disabled = state.seconds < cost;
+
+            // Unlock Shop
+            if (state.clocks > 0 || state.totalSecondsWasted > 50) {
+                els.zone.classList.remove('opacity-50', 'pointer-events-none');
+            }
+
+            // Prestige
+            if (state.totalSecondsWasted > 5000) {
+                els.prestige.classList.remove('hidden');
+                els.chrono.innerText = `${state.chronotons} CHRONOTONS`;
+            }
+
+            // Shop Buttons
+            SHOP.forEach(item => {
+                const btn = document.getElementById(`btn-${item.id}`);
+                if (btn) {
+                    const price = Math.floor(item.cost * Math.pow(item.mult, state.shopCounts[item.id] || 0));
+                    btn.disabled = state.clocks < price;
+                    btn.querySelector('.price').innerText = price;
+                }
+            });
+        }
+
+        // --- Actions ---
+
+        window.convert = function() {
+            const cost = getConversionCost();
+            if (state.seconds >= cost) {
+                state.seconds -= cost;
+                state.clocks++;
+                state.conversions++;
+                log(`CONVERTED. RATE INCREASED. NEW COST: ${getConversionCost()}`);
+                renderShop(); // Update shop incase buttons need to enable
+                renderDistractions();
+            } else {
+                els.msgConv.style.opacity = 1;
+                setTimeout(() => els.msgConv.style.opacity = 0, 1000);
+            }
+        };
+        els.btnConv.onclick = window.convert;
+
+        window.buy = function(id) {
+            const item = SHOP.find(i => i.id === id);
+            const count = state.shopCounts[id] || 0;
+            const price = Math.floor(item.cost * Math.pow(item.mult, count));
+
+            if (state.clocks >= price) {
+                state.clocks -= price;
+                state.shopCounts[id] = count + 1;
+                log(`BOUGHT ${item.name}`);
+                saveGame();
+                renderShop();
+            }
+        };
+
+        window.buyDist = function(id) {
+            const d = DISTRACTIONS.find(x => x.id === id);
+            if (!state.unlocks[id]) {
+                if (state.clocks >= d.cost) {
+                    state.clocks -= d.cost;
+                    state.unlocks[id] = true;
+                    log(`UNLOCKED ${d.name}`);
+                    saveGame();
+                    renderDistractions();
+                }
+            } else {
+                d.action();
+            }
+        };
+
+        window.triggerReset = function() {
+            if (confirm("HARD RESET: DELETE ALL DATA?")) {
+                if (confirm("ARE YOU ABSOLUTELY SURE? THIS CANNOT BE UNDONE.")) {
+                    localStorage.removeItem(CONFIG.SAVE_KEY);
+                    location.reload();
+                }
+            }
+        };
+
+        window.prestige = function() {
+            if (!confirm("RESET TIME LINE?")) return;
+            const gain = Math.floor(state.totalSecondsWasted / 1000);
+            const newChrono = Math.max(0, gain - state.chronotons);
+            
+            state.chronotons += newChrono;
+            state.seconds = 0;
+            state.clocks = 0;
+            state.conversions = 0;
+            state.shopCounts = { gears: 0, chrono: 0, machine: 0 };
+            
+            log(`PRESTIGE COMPLETE. +${newChrono} CHRONOTONS.`);
+            saveGame();
+            renderShop();
+            renderDistractions();
+        };
+
+        // --- Features ---
+
+        function spawnGoldenSecond() {
+            const el = document.createElement('div');
+            el.innerText = "+60s";
+            el.className = "golden-second";
+            el.style.left = Math.random() * 80 + 10 + "%";
+            
+            el.onclick = () => {
+                state.seconds += 60;
+                log("CAPTURED GOLDEN SECOND (+60s)");
+                el.remove();
+            };
+            
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }
+
+        // Chat Simulator
+        const CHAT_NAMES = ["Mom", "Boss", "SpamBot_99", "Unknown", "TimeCop", "John_Doe", "Friend123", "System", "FREEMONEYINBIO" ];
+        const CHAT_MSGS = [
+            "Why aren't you working?",
+            "You have won a free iPhone! Click here.",
+            "Please submit the report.",
+            "Is this game even fun?",
+            "Wake up.",
+            "Stop wasting time.",
+            "Just 5 more minutes..."
+        ];
+
+        function renderChat() {
+            els.mini.innerHTML = `
+                <div class="p-2 h-40 flex flex-col">
+                    <div class="border-b border-white mb-2 font-bold">AOL_MESSENGER_V1.0</div>
+                    <div id="chatBox" class="flex-1 overflow-y-auto text-xs space-y-2 mb-2"></div>
+                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="text-xs hover:bg-white hover:text-black border border-white p-1">CLOSE_CONNECTION</button>
+                </div>
+            `;
+            
+            const box = document.getElementById('chatBox');
+            // Add initial message
+            addChatMsg(box);
+            
+            // Randomly add messages
+            const interval = setInterval(() => {
+                if (!document.getElementById('chatBox')) {
+                    clearInterval(interval);
+                    return;
+                }
+                if (Math.random() > 0.6) addChatMsg(box);
+            }, 2000);
+        }
+
+        function addChatMsg(box) {
+            const name = CHAT_NAMES[Math.floor(Math.random() * CHAT_NAMES.length)];
+            const msg = CHAT_MSGS[Math.floor(Math.random() * CHAT_MSGS.length)];
+            const line = document.createElement('div');
+            line.className = "chat-msg";
+            line.innerHTML = `<span class="text-blue-400 font-bold">${name}:</span> ${msg}`;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function renderRock() {
+            els.mini.innerHTML = `
+                <div class="p-4 text-center">
+                    <div>🪨</div>
+                    <div class="text-xs my-2">IT IS A ROCK. IT DOES NOTHING.</div>
+                    <button onclick="document.getElementById('activeMinigame').innerHTML=''" class="btn text-xs">OKAY</button>
+                </div>
+            `;
+        }
+
+        // --- Renderers ---
+
+        function renderShop() {
+            els.shop.innerHTML = '';
+            SHOP.forEach(item => {
+                const count = state.shopCounts[item.id] || 0;
+                const cost = Math.floor(item.cost * Math.pow(item.mult, count));
+                
+                const div = document.createElement('div');
+                div.className = "box flex justify-between items-center p-2 mb-0";
+                div.innerHTML = `
+                    <div class="text-xs">
+                        <div class="font-bold text-yellow-200">${item.name}</div>
+                        <div>OWNED: ${count}</div>
+                    </div>
+                    <button id="btn-${item.id}" onclick="buy('${item.id}')" class="btn text-xs">
+                        BUY (<span class="price">${cost}</span>)
+                    </button>
+                `;
+                els.shop.appendChild(div);
+            });
+        }
+
+        function renderDistractions() {
+            els.dist.innerHTML = '';
+            DISTRACTIONS.forEach(d => {
+                const unlocked = state.unlocks[d.id];
+                const div = document.createElement('div');
+                div.className = `box flex flex-col items-center justify-center cursor-pointer ${unlocked ? 'border-blue-400 text-blue-400' : 'border-gray-600 text-gray-600'}`;
+                
+                if (unlocked) {
+                    div.innerHTML = `<div class="font-bold">${d.name}</div><div class="text-[10px]">LAUNCH</div>`;
+                } else {
+                    div.innerHTML = `<div class="font-bold">???</div><div class="text-[10px]">${d.cost} CLOCKS</div>`;
+                }
+                div.onclick = () => buyDist(d.id);
+                els.dist.appendChild(div);
+            });
+        }
+
+        function changeBg() {
+            document.body.style.backgroundColor = `hsl(${Math.random()*360}, 50%, 5%)`;
+        }
+
+        function log(msg) {
+            const d = document.createElement('div');
+            d.innerText = `> ${msg}`;
+            els.log.insertBefore(d, els.log.firstChild);
+            if (els.log.children.length > 20) els.log.lastChild.remove();
+        }
+
+        // --- Save/Load & Offline Progress ---
+
+        function saveGame() {
+            state.lastSaveTime = Date.now();
+            localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(state));
+        }
+
+        function loadGame() {
+            const raw = localStorage.getItem(CONFIG.SAVE_KEY);
+            if (raw) {
+                try {
+                    const saved = JSON.parse(raw);
+                    state = { ...state, ...saved };
+                    
+                    // Offline Calculation
+                    const now = Date.now();
+                    const diffMs = now - (state.lastSaveTime || now);
+                    const diffMins = Math.floor(diffMs / 60000);
+                    
+                    if (diffMins > 0) {
+                        // Formula: Minutes * (Base 5 + Upgrades)
+                        // Count upgrades for bonus
+                        const totalUpgrades = Object.values(state.shopCounts).reduce((a,b)=>a+b,0);
+                        const ratePerMin = CONFIG.OFFLINE_RATE + (totalUpgrades * 0.5);
+                        const gain = Math.floor(diffMins * ratePerMin);
+                        
+                        state.seconds += gain;
+                        state.totalSecondsWasted += gain;
+                        
+                        els.offline.classList.remove('hidden');
+                        document.getElementById('offlineGain').innerText = gain;
+                        log(`OFFLINE FOR ${diffMins} MINS. GAINED ${gain}s.`);
+                    }
+                } catch(e) {
+                    console.error("Save Error", e);
+                }
+            }
+            // Ensure compatibility if new fields added
+            if(!state.conversions) state.conversions = 0;
+            
+            renderShop();
+            renderDistractions();
+        }
+
+        // --- Visuals (Canvas) ---
+        function toggleDVD() {
+            const cvs = els.cvs;
+            if (getComputedStyle(cvs).opacity === '0') {
+                cvs.style.opacity = 0.5;
+                cvs.width = window.innerWidth;
+                cvs.height = window.innerHeight;
+                requestAnimationFrame(animateDVD);
+            } else {
+                cvs.style.opacity = 0;
+            }
+        }
+
+        let dvd = { x: 50, y: 50, dx: 3, dy: 3, w: 100, h: 50 };
+        function animateDVD() {
+            if (getComputedStyle(els.cvs).opacity === '0') return;
+            const ctx = els.cvs.getContext('2d');
+            ctx.clearRect(0, 0, els.cvs.width, els.cvs.height);
+            
+            dvd.x += dvd.dx;
+            dvd.y += dvd.dy;
+
+            if (dvd.x + dvd.w > els.cvs.width || dvd.x < 0) dvd.dx *= -1;
+            if (dvd.y + dvd.h > els.cvs.height || dvd.y < 0) dvd.dy *= -1;
+
+            if (assets.dvd.complete && assets.dvd.naturalHeight > 0) {
+                ctx.drawImage(assets.dvd, dvd.x, dvd.y, dvd.w, dvd.h);
+            } else {
+                ctx.strokeStyle = 'white';
+                ctx.strokeRect(dvd.x, dvd.y, dvd.w, dvd.h);
+                ctx.fillStyle = 'white';
+                ctx.fillText("DVD", dvd.x + 40, dvd.y + 30);
+            }
+            requestAnimationFrame(animateDVD);
+        }
+
+        function toggleMusic() {
+            if (assets.music.paused) assets.music.play();
+            else assets.music.pause();
+        }
+
+        window.onload = function() {
+            loadGame();
+
+            document.getElementById('startOverlay').onclick = function() {
+            assets.music.play(); // Music starts here
+            this.remove();       // Remove the overlay
+            requestAnimationFrame(gameLoop);
+          };
+            
+            window.onresize = () => {
+                els.cvs.width = window.innerWidth;
+                els.cvs.height = window.innerHeight;
+            };
+        };
+
+    </script>
+</body>
+</html>
