@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>take me to a random website</title>
+    <link rel="icon" type="image/x-icon" href="icon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col items-center justify-center p-6 font-mono">
+
+    <h1 class="text-3xl font-bold mb-8">take me to a random website</h1>
+
+    <div class="space-y-4 w-full max-w-xs">
+        <!-- Useful Button -->
+        <button onclick="goTo('useful')" class="w-full p-4 border-4 border-black bg-white hover:bg-green-200 active:bg-green-400 font-bold text-xl uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all">
+            Useful site
+        </button>
+
+        <!-- Useless Button -->
+        <button onclick="goTo('useless')" class="w-full p-4 border-4 border-black bg-white hover:bg-red-200 active:bg-red-400 font-bold text-xl uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all">
+            Useless site
+        </button>
+    </div>
+
+    <p class="mt-12 text-sm text-gray-500">just click a button.</p>
+
+    <script>
+        /**
+         * EDIT YOUR LINKS HERE
+         */
+        const USEFUL_SITES = [
+            "https://beepsmol.com/"
+        ];
+
+        const USELESS_SITES = [
+            "https://longdogechallenge.com",
+            "https://pointerpointer.com",
+            "https://alwaysjudgeabookbyitscover.com",
+            "https://optical.toys",
+            "https://puginarug.com",
+            "https://mondrianandme.com",
+            "https://checkbox.toys/scale/",
+            "https://binarypiano.com",
+            "https://www.staggeringbeauty.com",
+            "https://www.hackertyper.net",
+            "https://fallingfalling.com",
+            "https://maze.toys/mazes/mini/daily/",
+            "https://cruel.toys/maze/",
+            "https://heeeeeeeey.com",
+            "https://floatingqrcode.com",
+            "https://www.zoomquilt.org",
+            "https://cant-not-tweet-this.com",
+            "https://ant.toys",
+            "https://cursoreffects.com",
+            "https://thatsthefinger.com",
+            "https://smashthewalls.com",
+            "https://burymewithmymoney.com",
+            "https://paint.toys/sand/",
+            "https://duckstreet.net",
+            "https://trypap.com",
+        ];
+
+        function goTo(type) {
+            const list = type === 'useful' ? USEFUL_SITES : USELESS_SITES;
+            const randomSite = list[Math.floor(Math.random() * list.length)];
+            
+            // Opens the link in a new tab
+            window.open(randomSite, '_blank');
+        }
+    </script>
+</body>
+</html>
