@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Time Waster v4</title>
+    <title>The Time Waster v6: Entropy Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* LOW EFFORT UI THEME */
+        /* LOW EFFORT UI THEME - BRUTALIST */
         body {
             font-family: 'Courier New', Courier, monospace;
             background-color: #050505;
@@ -19,13 +19,14 @@
             font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif !important;
         }
 
-        /* Brutalist Box Style */
+        /* Box Style */
         .box {
             border: 2px solid #ffffff;
             background: #000000;
             padding: 1rem;
             margin-bottom: 1rem;
             box-shadow: 4px 4px 0px #333;
+            transition: all 0.2s;
         }
 
         .btn {
@@ -59,7 +60,7 @@
         ::-webkit-scrollbar-track { background: #000; border-left: 2px solid #fff; }
         ::-webkit-scrollbar-thumb { background: #fff; }
 
-        /* Bouncing Box Canvas */
+        /* Canvas Layers */
         #boredomCanvas {
             position: fixed;
             top: 0; left: 0;
@@ -94,7 +95,7 @@
              text-shadow: 0 0 5px rgba(255,255,255,0.5);
         }
 
-        /* Golden Second Animation */
+        /* Golden Second */
         .golden-second {
             position: fixed;
             font-size: 2rem;
@@ -148,18 +149,19 @@
             box-shadow: 8px 8px 0px #555;
         }
 
-        /* Skill Tree Nodes */
-        .skill-node {
-            border: 1px dashed #666;
+        /* Devtools Panel */
+        #devtoolsPanel {
+            position: fixed;
+            top: 10px; right: 10px;
+            width: 300px;
+            background: #111;
+            border: 2px solid #0f0;
+            color: #0f0;
             padding: 10px;
-            margin-bottom: 10px;
-            opacity: 0.7;
-            position: relative;
-        }
-        .skill-node.unlocked {
-            border: 2px solid #00ff00;
-            opacity: 1;
-            color: #00ff00;
+            z-index: 99999;
+            display: none;
+            font-family: monospace;
+            box-shadow: 0 0 20px #0f0;
         }
 
         /* Achievement Toast */
@@ -253,17 +255,60 @@
             cursor: pointer;
         }
         .todo-item:hover { background: #111; }
+        
+        /* Skill Tree Visuals */
+        .skill-node {
+            border: 1px solid #444;
+            padding: 15px;
+            position: relative;
+            background: #000;
+        }
+        .skill-node.unlocked {
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        /* Connectors for "Tree" look (Simplified grid) */
+        .skill-tree-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            position: relative;
+        }
+        
+        /* Minigame Window */
+        .minigame-window {
+            border: 2px dashed #666;
+            margin-bottom: 1rem;
+            position: relative;
+            background: #000;
+        }
+        .minigame-close {
+            position: absolute;
+            top: 0; right: 0;
+            background: #f00;
+            color: #fff;
+            width: 20px; height: 20px;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center p-4">
+
+  <!-- Audio Asset -->
+  <audio id="bgMusic" loop src="timewasted.mp3"></audio>
 
   <div id="hardModeOverlay"></div>
   <div id="pixelBtn" title="?"></div>
   
   <div id="customCtx">
-      <div class="ctx-item" onclick="ctxAction()">Uninstall Boredom</div>
-      <div class="ctx-item" onclick="ctxAction()">Speed Up Time (Paid)</div>
-      <div class="ctx-item" onclick="ctxAction()">Free Clocks</div>
+      <div class="ctx-item" onclick="ctxAction('uninstall')">Uninstall Boredom</div>
+      <div class="ctx-item" onclick="ctxAction('speed')">Speed Up Time (Paid)</div>
+      <div class="ctx-item" onclick="ctxAction('free')">Free Clocks</div>
   </div>
 
   <div id="fakeUpdate">
@@ -271,15 +316,24 @@
       <div class="text-xs">Click to install now...</div>
   </div>
 
+  <div id="devtoolsPanel">
+      <h3 class="font-bold border-b border-green-500 mb-2">DEVTOOLS (ADMIN)</h3>
+      <button onclick="devAddSec()" class="btn text-xs w-full mb-1 border-green-500 text-green-500">+10k Seconds</button>
+      <button onclick="devAddClk()" class="btn text-xs w-full mb-1 border-green-500 text-green-500">+1k Clocks</button>
+      <button onclick="devAddChr()" class="btn text-xs w-full mb-1 border-green-500 text-green-500">+5 Chronotons</button>
+      <button onclick="devUnlockAll()" class="btn text-xs w-full mb-1 border-green-500 text-green-500">Unlock All Achievements</button>
+      <button onclick="document.getElementById('devtoolsPanel').style.display='none'" class="btn text-xs w-full border-red-500 text-red-500">CLOSE</button>
+  </div>
+
   <div id="idleOverlay">
-      <h1 class="text-4xl font-bold mb-4 text-center">ARE YOU STILL WATCHING?</h1>
+      <h1 class="text-4xl font-bold mb-4 text-center">ARE YOU STILL THERE?</h1>
       <p class="mb-4 text-gray-400">Progression paused due to inactivity.</p>
       <button onclick="resumeIdle()" class="btn">I'M HERE</button>
   </div>
 
   <div id="startOverlay" class="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-pointer">
     <div class="text-2xl border-2 border-white p-8 hover:bg-white hover:text-black animate-pulse text-center">
-        CLICK TO START WASTING TIME
+        CLICK TO ENTER THE VOID<br><span class="text-xs text-gray-500">(Music will play)</span>
     </div>
   </div>
 
@@ -288,7 +342,7 @@
       <div id="achieveName" class="text-lg">Title Here</div>
   </div>
 
-    <!-- Assets (handled with fallbacks in JS) -->
+    <!-- Canvas for DVD/Visuals -->
     <canvas id="boredomCanvas"></canvas>
 
     <!-- Desktop Sidebars -->
@@ -309,10 +363,10 @@
             </div>
             
             <div class="flex flex-wrap justify-center gap-2 mt-4">
-                <button onclick="toggleMusic()" class="btn text-xs">[TOGGLE MUSIC]</button>
-                <button onclick="openModal('settingsModal')" class="btn text-xs border-gray-400 text-gray-400">[SETTINGS]</button>
-                <button onclick="openModal('achieveModal')" class="btn text-xs border-yellow-500 text-yellow-500">[HALL OF SHAME]</button>
-                <button onclick="triggerReset()" class="btn text-xs hover:bg-red-600 hover:text-white border-red-500 text-red-500">[HARD RESET]</button>
+                <button onclick="toggleMusic()" class="btn text-xs lbl-music">[TOGGLE MUSIC]</button>
+                <button onclick="openModal('settingsModal')" class="btn text-xs border-gray-400 text-gray-400 lbl-settings">[SETTINGS]</button>
+                <button onclick="openModal('achieveModal')" class="btn text-xs border-yellow-500 text-yellow-500 lbl-shame">[HALL OF SHAME]</button>
+                <button onclick="triggerReset()" class="btn text-xs hover:bg-red-600 hover:text-white border-red-500 text-red-500 lbl-reset">[HARD RESET]</button>
             </div>
             
             <div id="offlineBadge" class="hidden mt-4 border border-green-500 text-green-500 p-2 text-xs">
@@ -364,33 +418,33 @@
 
             <div class="flex gap-2 w-full mb-2">
                 <button id="convertBtn" class="btn flex-grow py-4 text-lg border-dashed">
-                    CONVERT <span id="convertCost">100</span>s -> 1 CLOCK
+                    <span class="lbl-convert">CONVERT</span> <span id="convertCost">60</span>s -> 1 <span class="lbl-clk-sing">CLOCK</span>
                 </button>
                 <button id="bulkConvertBtn" onclick="bulkConvert()" class="btn w-20 text-xs border-dashed flex flex-col items-center justify-center" title="Convert Max (25% Penalty)">
-                    <span>BULK</span>
-                    <span class="text-[9px] text-red-400">-25% TAX</span>
+                    <span class="lbl-bulk">BULK</span>
+                    <span class="text-[9px] text-red-400 lbl-tax">-25% TAX</span>
                 </button>
             </div>
-            <div id="convertMsg" class="h-4 text-xs text-red-500 text-center opacity-0">INSUFFICIENT FUNDS</div>
+            <div id="convertMsg" class="h-4 text-xs text-red-500 text-center opacity-0 lbl-insufficient">INSUFFICIENT FUNDS</div>
         </div>
 
         <!-- Prestige Block -->
         <div id="prestigeSection" class="hidden box border-purple-500 text-center">
-            <h3 class="text-purple-400 font-bold mb-2">THE CHRONOTON TIME MACHINE</h3>
+            <h3 class="text-purple-400 font-bold mb-2 lbl-machine">THE CHRONOTON TIME MACHINE</h3>
             <p class="text-xs mb-4">
-                The machine hums with energy. Reset your run to acquire Chronotons.
+                <span class="lbl-machine-desc">The machine hums. Reset run for Chronotons.</span>
                 <br>REQ: <span id="nextChronoReq">25,000</span> LIFETIME SECONDS.
-                <br>EFFECT: +100% SPEED PER CHRONOTON.
+                <br>EFFECT: +100% SPEED.
             </p>
             <div id="potentialChrono" class="text-lg mb-4 text-white">REWARD: 0 CHRONOTONS</div>
-            <button onclick="prestige()" class="btn w-full border-purple-500 text-purple-400 hover:bg-purple-900">
+            <button onclick="prestige()" class="btn w-full border-purple-500 text-purple-400 hover:bg-purple-900 lbl-activate">
                 [ACTIVATE TIME MACHINE]
             </button>
         </div>
 
         <!-- Skill Tree Button -->
         <div id="skillTreeBtnContainer" class="hidden box border-green-500 text-center p-2">
-             <button onclick="openModal('skillModal')" class="btn w-full border-green-500 text-green-400">
+             <button onclick="openModal('skillModal')" class="btn w-full border-green-500 text-green-400 lbl-tablet-btn">
                 [OPEN ANCIENT TABLET]
             </button>
         </div>
@@ -399,22 +453,26 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Shop -->
             <div>
-                <h2 class="font-bold border-b-2 border-white mb-2" id="shopHeader">SHOP</h2>
-                <div id="shopGrid" class="space-y-2">
+                <div class="flex justify-between items-center border-b-2 border-white mb-2 cursor-pointer" onclick="toggleShop()">
+                    <h2 class="font-bold lbl-shop">SHOP</h2>
+                    <span id="shopToggleIcon">[-]</span>
+                </div>
+                <div id="shopGrid" class="space-y-2 transition-all">
                     <!-- Shop Items Generated by JS -->
                 </div>
             </div>
             <!-- Boredom Zone -->
             <div id="boredomSection" class="opacity-50 pointer-events-none transition-opacity">
-                <h2 class="font-bold border-b-2 border-white mb-2 xl:hidden">BOREDOM ZONE</h2>
+                <h2 class="font-bold border-b-2 border-white mb-2 xl:hidden lbl-zone">BOREDOM ZONE</h2>
                 <div id="distractionGrid" class="grid grid-cols-2 gap-2 xl:hidden"></div>
-                <div id="activeMinigame" class="mt-4 empty:hidden box border-dashed"></div>
+                <!-- Multiple Active Minigames Container -->
+                <div id="activeMinigame" class="mt-4 flex flex-col gap-4"></div>
             </div>
         </div>
 
         <!-- Log -->
         <div class="box mt-4 h-32 overflow-y-auto text-xs font-mono text-gray-400 scroll-smooth" id="gameLog">
-            <div>> SYSTEM_READY...</div>
+            <!-- Log entries go here -->
         </div>
     </div>
 
@@ -423,7 +481,7 @@
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal">
         <div class="modal-content border-gray-400">
-            <h2 class="text-2xl font-bold text-gray-300 mb-4 border-b border-gray-500 pb-2">SETTINGS</h2>
+            <h2 class="text-2xl font-bold text-gray-300 mb-4 border-b border-gray-500 pb-2 lbl-settings">SETTINGS</h2>
             <div class="mb-6 space-y-4">
                 <div>
                     <div class="flex justify-between text-xs mb-1"><span>SFX VOLUME</span><span id="sfxVal">100%</span></div>
@@ -442,12 +500,19 @@
                     </div>
                     <input type="checkbox" id="lolcatCheck" class="w-6 h-6" onchange="updateSettings()">
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center mb-4">
                     <div>
                         <div class="font-bold text-red-500">HARD MODE</div>
                         <div class="text-[10px] text-gray-400">Visual distortion. 100x Slower.</div>
                     </div>
                     <input type="checkbox" id="hardModeCheck" class="w-6 h-6" onchange="updateSettings()">
+                </div>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-blue-400">REDUCE MOTION</div>
+                        <div class="text-[10px] text-gray-400">No animations.</div>
+                    </div>
+                    <input type="checkbox" id="motionCheck" class="w-6 h-6" onchange="updateSettings()">
                 </div>
             </div>
             <button onclick="closeModal('settingsModal')" class="btn mt-4 w-full">CLOSE</button>
@@ -457,12 +522,12 @@
     <!-- Skill Tree Modal -->
     <div id="skillModal" class="modal">
         <div class="modal-content border-green-500 h-full max-h-screen flex flex-col">
-            <h2 class="text-2xl font-bold text-green-400 mb-4 border-b border-green-500 pb-2">ANCIENT TABLET (SKILL TREE)</h2>
+            <h2 class="text-2xl font-bold text-green-400 mb-4 border-b border-green-500 pb-2 lbl-tablet">ANCIENT TABLET</h2>
             <div class="flex justify-between mb-4 bg-black py-2 border-b border-gray-800 shrink-0">
                 <span class="text-green-300">FRAGMENTS: <span id="fragDisplay">0</span></span>
-                <button onclick="buyFragment()" class="text-xs border px-2 border-green-500 hover:bg-green-900 transition-colors">100 CLOCKS -> 1 FRAG</button>
+                <button onclick="buyFragment()" class="text-xs border px-2 border-green-500 hover:bg-green-900 transition-colors lbl-frag-buy">100 CLOCKS -> 1 FRAG</button>
             </div>
-            <div id="skillList" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto p-1">
+            <div id="skillList" class="skill-tree-grid overflow-y-auto p-1">
                 <!-- Injected via JS -->
             </div>
             <button onclick="closeModal('skillModal')" class="btn mt-4 w-full shrink-0">CLOSE</button>
@@ -472,7 +537,7 @@
     <!-- Hall of Shame Modal -->
     <div id="achieveModal" class="modal">
         <div class="modal-content border-yellow-500">
-            <h2 class="text-2xl font-bold text-yellow-400 mb-4 border-b border-yellow-500 pb-2">THE HALL OF SHAME</h2>
+            <h2 class="text-2xl font-bold text-yellow-400 mb-4 border-b border-yellow-500 pb-2 lbl-shame-title">REGISTRY OF HEROES</h2>
             <div class="mb-2 text-xs text-right" id="achieveCount">0 / 0</div>
             <div id="achieveList" class="grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-2">
                 <!-- Injected via JS -->
@@ -482,93 +547,65 @@
     </div>
 
     <script>
-        // --- SFX System (Audio Generation) ---
+        // --- SFX System ---
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const ctxAudio = new AudioCtx();
         const SFX = {
             play: (type) => {
                 const vol = state.settings ? state.settings.sfxVol : 1;
                 if (vol <= 0) return;
-                
-                // Ensure context is running
                 if (ctxAudio.state === 'suspended') ctxAudio.resume();
-
                 const osc = ctxAudio.createOscillator();
                 const gain = ctxAudio.createGain();
                 gain.connect(ctxAudio.destination);
                 const now = ctxAudio.currentTime;
 
                 if (type === 'click') {
-                    osc.type = 'square'; 
-                    osc.frequency.setValueAtTime(150, now);
+                    osc.type = 'square'; osc.frequency.setValueAtTime(150, now);
                     osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.1);
-                    gain.gain.setValueAtTime(0.1*vol, now); 
-                    gain.gain.exponentialRampToValueAtTime(0.001, now+0.1);
+                    gain.gain.setValueAtTime(0.1*vol, now); gain.gain.exponentialRampToValueAtTime(0.001, now+0.1);
                     osc.connect(gain); osc.start(); osc.stop(now+0.1);
                 } else if (type === 'convert') {
-                    osc.type = 'sawtooth'; 
-                    osc.frequency.setValueAtTime(100, now);
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
                     osc.frequency.linearRampToValueAtTime(50, now+0.1);
-                    gain.gain.setValueAtTime(0.2*vol, now); 
-                    gain.gain.exponentialRampToValueAtTime(0.001, now+0.2);
+                    gain.gain.setValueAtTime(0.2*vol, now); gain.gain.exponentialRampToValueAtTime(0.001, now+0.2);
                     osc.connect(gain); osc.start(); osc.stop(now+0.2);
                 } else if (type === 'golden') {
-                    osc.type = 'sine'; 
-                    osc.frequency.setValueAtTime(800, now);
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(800, now);
                     osc.frequency.linearRampToValueAtTime(1500, now+0.3);
-                    gain.gain.setValueAtTime(0.1*vol, now); 
-                    gain.gain.linearRampToValueAtTime(0, now+0.3);
+                    gain.gain.setValueAtTime(0.1*vol, now); gain.gain.linearRampToValueAtTime(0, now+0.3);
                     osc.connect(gain); osc.start(); osc.stop(now+0.3);
-                } else if (type === 'error') {
-                    osc.type = 'triangle'; 
-                    osc.frequency.setValueAtTime(80, now);
-                    gain.gain.setValueAtTime(0.2*vol, now); 
-                    gain.gain.exponentialRampToValueAtTime(0.001, now+0.3);
-                    osc.connect(gain); osc.start(); osc.stop(now+0.3);
-                } else if (type === 'prestige') {
-                    osc.type = 'sawtooth'; 
-                    osc.frequency.setValueAtTime(50, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now+2);
-                    gain.gain.setValueAtTime(0.3*vol, now); 
-                    gain.gain.linearRampToValueAtTime(0, now+2);
-                    osc.connect(gain); osc.start(); osc.stop(now+2);
                 } else if (type === 'ding') {
-                    osc.type = 'sine'; 
-                    osc.frequency.setValueAtTime(500, now);
-                    gain.gain.setValueAtTime(0.1*vol, now); 
-                    gain.gain.exponentialRampToValueAtTime(0.001, now+0.5);
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(500, now);
+                    gain.gain.setValueAtTime(0.1*vol, now); gain.gain.exponentialRampToValueAtTime(0.001, now+0.5);
                     osc.connect(gain); osc.start(); osc.stop(now+0.5);
                 }
             }
         };
 
         const CONFIG = {
-            BASE_CONVERSION: 100,
+            BASE_CONVERSION: 60,
             CONVERSION_SCALE: 1.01,
             OFFLINE_RATE: 5, 
             CHRONO_THRESHOLD: 25000,
             CHRONO_SCALE: 100, 
-            SAVE_KEY: 'timeWaster_v4_fixed'
+            SAVE_KEY: 'timeWaster_v6_entropy'
         };
 
-        // Fallback placeholder for DVD logo
-        const assets = { dvd: new Image(), music: null };
-        assets.dvd.src = 'dvdlogo.png'; // Will fail if not present, handled in draw loop
-        // Music placeholder logic
-        let musicPlaying = false;
-
+        const assets = { dvd: new Image(), music: document.getElementById('bgMusic') };
+        assets.dvd.src = 'dvdlogo.png';
+        
         let state = {
             seconds: 0, clocks: 0, fragments: 0, chronotons: 0, prestigeCount: 0,
             totalSecondsWasted: 0, runSecondsWasted: 0, conversions: 0,
             lastSaveTime: Date.now(), startTime: Date.now(),
-            settings: { sfxVol: 1, musicVol: 1, hardMode: false, lolcat: false, comicSans: false },
-            shopCounts: { gears: 0, chrono: 0, machine: 0, dilator: 0, toaster: 0, engine: 0, skill_key: 0 },
+            settings: { sfxVol: 1, musicVol: 1, hardMode: false, lolcat: false, comicSans: false, reduceMotion: false, shopCollapsed: false },
+            shopCounts: { gears: 0, chrono: 0, machine: 0, dilator: 0, toaster: 0, field: 0, trash: 0, dissolver: 0, engine: 0, skill_key: 0 },
             skills: { accel_pulse: false, shiny_magnet: false, eff_expert: false, deep_focus: false, time_warp: false, compound: false, cheap_shop: false, auto_conv: false },
             achievements: [],
-            unlocks: { bg: false, dvd: false, chat: false, rock: false, bubble: false, draw: false, unsorter: false, todo: false, waitroom: false, almost: false, dontclick: false, sub_box: false, netflix: false },
+            unlocks: { bg: false, dvd: false, chat: false, rock: false, mushroom: false, bubble: false, draw: false, unsorter: false, todo: false, waitroom: false, almost: false, dontclick: false, sub_box: false, netflix: false },
             stats: { rockFed: 0, bubblesPopped: 0, bgChanges: 0, fakeClicks: 0, convertSpree: 0, almostFail: 0, chatMsgs: 0, unaffordableTry: 0 },
-            timers: { lastInput: Date.now(), sessionStart: Date.now() },
-            misc: { subActive: false }
+            timers: { lastInput: Date.now() },
         };
 
         const SKILLS = [
@@ -588,7 +625,7 @@
             { id: 'collector', title: "Collector of Nothing", desc: "Hold 1,000 Clocks at once.", check: (s) => s.clocks >= 1000 },
             { id: 'pointless', title: "Pointless Endeavor", desc: "Feed the Pet Rock 100 times.", check: (s) => s.stats.rockFed >= 100 },
             { id: 'bubbles', title: "Master of Bubbles", desc: "Pop 1,200 Bubbles total.", check: (s) => s.stats.bubblesPopped >= 1200 },
-            { id: 'rebel', title: "The Rebel", desc: "Click the 'Don't Click' button.", manual: true },
+            { id: 'rebel', title: "Respect the Button", desc: "Click the 'Don't Click' button.", manual: true },
             { id: 'traveler', title: "Time Traveler", desc: "Prestige for the first time.", check: (s) => s.prestigeCount >= 1 },
             { id: 'efficient', title: "Efficiency Is Boring", desc: "Buy the Procrastinator's Engine.", check: (s) => s.shopCounts.engine >= 1 },
             { id: 'online', title: "Chronically Online", desc: "Accumulate 1 Week of time wasted.", check: (s) => s.totalSecondsWasted >= 604800 },
@@ -612,9 +649,12 @@
             { id: 'speed_reader', title: "Speed Reader", desc: "100 Chat messages generated.", check: (s) => s.stats.chatMsgs >= 100 },
             { id: 'overachiever', title: "Overachiever", desc: "1000x Multiplier.", check: (s) => (1 + s.chronotons * 100) >= 1000 },
             { id: 'did_i', title: "Did I do that?", desc: "Click Golden Second while busy.", manual: true },
-            { id: 'worse', title: "It gets worse from here", desc: "Turn on Hard Mode.", manual: true },
+            { id: 'worse', title: "Embrace Hard Mode", desc: "Turn on Hard Mode.", manual: true },
             { id: 'font', title: "Forbidden Font", desc: "Activate Comic Sans mode.", manual: true },
-            { id: 'beat', title: "Beat the Game?", desc: "Have everything.", check: (s) => checkBeatGame(s) }
+            { id: 'janitor', title: "The First Janitor", desc: "Unlock the Ancient Tablet.", check: (s) => s.shopCounts.skill_key > 0 },
+            { id: 'turbulence', title: "Turbulence", desc: "Reach 100 seconds per second.", check: (s) => false }, 
+            { id: 'bad_trade', title: "Terrible Investment", desc: "Exchange a Clock for 10 seconds via the Mushroom.", manual: true },
+            { id: 'beat', title: "Beat the Game?", desc: "Have everything + 5 Chronotons.", check: (s) => checkBeatGame(s) }
         ];
 
         const RANKS = [
@@ -624,7 +664,7 @@
             { t: 50000, title: "CLOCK WATCHER" }, { t: 86400, title: "TIME BANDIT" },
             { t: 250000, title: "EPOCH EATER" }, { t: 500000, title: "ERA ERASER" },
             { t: 1000000, title: "ENTROPY GOD" }, { t: 10000000, title: "TIME LORD" },
-            { t: 100000000, title: "ETERNAL VOID" }
+            { t: 50000000, title: "ETERNAL VOID" }, { t: 100000000, title: "JANITOR OF THE VOID" }
         ];
 
         const SHOP = [
@@ -633,6 +673,9 @@
             { id: 'machine', name: 'FLUX CAPACITOR', desc: '+10.0 sec/s', cost: 50, power: 10.0 },
             { id: 'dilator', name: 'TIME DILATOR', desc: '+50.0 sec/s', cost: 200, power: 50.0 },
             { id: 'toaster', name: 'QUANTUM TOASTER', desc: '+250.0 sec/s', cost: 1000, power: 250.0 },
+            { id: 'field', name: 'STASIS FIELD GEN', desc: '+500.0 sec/s', cost: 5000, power: 500.0 },
+            { id: 'trash', name: 'BLACK HOLE BIN', desc: '+1.0k sec/s', cost: 20000, power: 1000.0 },
+            { id: 'dissolver', name: 'NARRATIVE DISSOLVER', desc: '+5.0k sec/s', cost: 100000, power: 5000.0 },
             { id: 'skill_key', name: 'ANCIENT TABLET', desc: 'Unlock Skill Tree', cost: 500, power: 0, special: true },
             { id: 'engine', name: 'PROCRASTINATOR ENGINE', desc: 'Auto-collect Golden Seconds (50%)', cost: 500, power: 0, special: true } 
         ];
@@ -696,6 +739,9 @@
         let convertClicks = [];
         let bgClicks = [];
         let goldenSpree = [];
+        
+        // Devtools
+        let keyBuffer = "";
 
         function gameLoop() {
             const now = Date.now();
@@ -703,10 +749,10 @@
             lastTime = now;
 
             // Idle Check
-            if (now - state.timers.lastInput > 600000 && !state.unlocks.netflix) { // 10 mins
+            if (now - state.timers.lastInput > 600000 && !state.unlocks.netflix) { 
                 document.getElementById('idleOverlay').style.display = 'flex';
                 requestAnimationFrame(gameLoop);
-                return; // Pause logic
+                return; 
             }
 
             // Calc Rate
@@ -720,6 +766,8 @@
             let finalRate = baseRate * prestigeMult * realWorldMult;
 
             if (state.settings.hardMode) finalRate *= 0.01;
+            
+            if (finalRate >= 100) unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='turbulence'));
 
             const gain = finalRate * dt;
             state.seconds += gain;
@@ -742,10 +790,10 @@
 
             // Random Ding
             dingTimer += dt;
-            if (dingTimer > (600 + Math.random()*600)) { // 10-20 mins
+            if (dingTimer > (600 + Math.random()*600)) { 
                 SFX.play('ding');
                 const toast = document.getElementById('achieveToast');
-                document.getElementById('achieveName').innerText = "Nothing happened. Just checking.";
+                document.getElementById('achieveName').innerText = getText("Nothing happened. Just checking.");
                 toast.style.bottom = "20px";
                 setTimeout(() => { toast.style.bottom = "-100px"; }, 3000);
                 dingTimer = 0;
@@ -763,7 +811,7 @@
             // Sub Box
             if (state.unlocks.sub_box) {
                 subTimer += dt;
-                if (subTimer > 600) { // 10 mins
+                if (subTimer > 600) { 
                     if (state.clocks >= 10) {
                         state.clocks -= 10;
                         log("SUBSCRIPTION GIFT: You feel satisfaction!");
@@ -781,9 +829,9 @@
             saveTimer += dt;
             if (saveTimer > 10) { saveGame(); saveTimer = 0; }
 
-            // Golden Seconds
+            // Golden Seconds (Rarer)
             goldenTimer += dt;
-            const spawnChance = state.skills.shiny_magnet ? 0.04 : 0.02;
+            const spawnChance = state.skills.shiny_magnet ? 0.02 : 0.005; // Rare
             if (goldenTimer > 1) { 
                 if (Math.random() < spawnChance) spawnGoldenSecond(); 
                 goldenTimer = 0;
@@ -819,6 +867,10 @@
             return allShop && allDist && s.chronotons >= 5 && allAch;
         }
 
+        function getText(text) {
+             return state.settings.lolcat ? lolcat(text) : text;
+        }
+
         // --- UI ---
         function updateUI(rate, pMult) {
             const lol = state.settings.lolcat;
@@ -832,25 +884,38 @@
             els.chronoMult.innerText = `+${formatNum((pMult - 1) * 100)}% BONUS`;
             els.frag.innerText = state.fragments;
 
-            // Static Labels Lolcat
-            if(lol) {
-                document.getElementById('mainTitle').innerText = "TEH TIEM WASTUR";
-                document.getElementById('rankTitle').innerText = `RANK: ${lolcat(getRankTitle())}`;
-                document.querySelector('.lbl-life').innerText = "LIEFTIEM";
-                document.querySelector('.lbl-run').innerText = "TOTUL (DIS RUN)";
-                document.querySelector('.lbl-wasted').innerText = "TIEM WASTD";
-                document.querySelector('.lbl-clocks').innerText = "CLOKS";
-                document.querySelector('.lbl-curr').innerText = "CURRENCZ";
-                document.getElementById('shopHeader').innerText = "SHOPPE";
-            } else {
-                document.getElementById('mainTitle').innerText = "THE TIME WASTER";
-                document.getElementById('rankTitle').innerText = `RANK: ${getRankTitle()}`;
-                document.querySelector('.lbl-life').innerText = "LIFETIME";
-                document.querySelector('.lbl-run').innerText = "TOTAL (THIS RUN)";
-                document.querySelector('.lbl-wasted').innerText = "TIME WASTED";
-                document.querySelector('.lbl-clocks').innerText = "CLOCKS";
-                document.querySelector('.lbl-curr').innerText = "CURRENCY";
-                document.getElementById('shopHeader').innerText = "SHOP";
+            // Static Labels - Dynamic Update
+            document.getElementById('mainTitle').innerText = getText("THE TIME WASTER");
+            document.getElementById('rankTitle').innerText = `RANK: ${getText(getRankTitle())}`;
+            
+            const labels = {
+                '.lbl-life': "LIFETIME",
+                '.lbl-run': "TOTAL (THIS RUN)",
+                '.lbl-wasted': "TIME WASTED",
+                '.lbl-clocks': "CLOCKS",
+                '.lbl-curr': "CURRENCY",
+                '.lbl-shop': "SHOP",
+                '.lbl-bulk': "BULK",
+                '.lbl-convert': "CONVERT",
+                '.lbl-clk-sing': "CLOCK",
+                '.lbl-tax': "-25% TAX",
+                '.lbl-insufficient': "INSUFFICIENT FUNDS",
+                '.lbl-machine': "THE CHRONOTON TIME MACHINE",
+                '.lbl-machine-desc': "The machine hums. Reset run for Chronotons.",
+                '.lbl-activate': "[ACTIVATE TIME MACHINE]",
+                '.lbl-tablet-btn': "[OPEN ANCIENT TABLET]",
+                '.lbl-zone': "BOREDOM ZONE",
+                '.lbl-settings': "SETTINGS",
+                '.lbl-music': "[TOGGLE MUSIC]",
+                '.lbl-shame': "[HALL OF SHAME]",
+                '.lbl-reset': "[HARD RESET]",
+                '.lbl-tablet': "ANCIENT TABLET",
+                '.lbl-frag-buy': "100 CLOCKS -> 1 FRAG",
+                '.lbl-shame-title': "REGISTRY OF HEROES"
+            };
+
+            for (const [selector, text] of Object.entries(labels)) {
+                document.querySelectorAll(selector).forEach(el => el.innerText = getText(text));
             }
 
             if (state.prestigeCount > 0) {
@@ -874,11 +939,21 @@
             document.getElementById('nextChronoReq').innerText = formatNum(nextCost);
             if (canPrestige) {
                 els.prestige.classList.remove('hidden');
-                els.potChrono.innerText = `REWARD: 1 CHRONOTON`;
+                els.potChrono.innerText = `${getText("REWARD")}: 1 ${getText("CHRONOTON")}`;
             } else { els.prestige.classList.add('hidden'); }
 
             renderShopUI();
             renderDistractionsUI();
+            
+            // Shop Collapse
+            const shopGrid = document.getElementById('shopGrid');
+            if (state.settings.shopCollapsed) {
+                shopGrid.style.display = 'none';
+                document.getElementById('shopToggleIcon').innerText = '[+]';
+            } else {
+                shopGrid.style.display = 'block';
+                document.getElementById('shopToggleIcon').innerText = '[-]';
+            }
         }
 
         function getRankTitle() {
@@ -886,11 +961,15 @@
             return rank.title;
         }
 
+        function toggleShop() {
+            state.settings.shopCollapsed = !state.settings.shopCollapsed;
+            saveGame();
+            updateUI(0, 1 + state.chronotons*100);
+        }
+
         function renderShopUI() {
-            const lol = state.settings.lolcat;
             const grid = document.getElementById('shopGrid');
 
-            // Generate items if missing or force refresh for lolcat toggle
             if (!shopGenerated || grid.children.length !== SHOP.length) {
                 grid.innerHTML = '';
                 SHOP.forEach(item => {
@@ -901,10 +980,10 @@
                         <div>
                             <div class="font-bold text-sm" id="title-${item.id}">${item.name}</div>
                             <div class="text-[10px] text-gray-400" id="desc-${item.id}">${item.desc}</div>
-                            <div class="text-[10px] text-blue-400">OWNED: <span id="count-${item.id}">0</span></div>
+                            <div class="text-[10px] text-blue-400"><span class="lbl-owned">OWNED</span>: <span id="count-${item.id}">0</span></div>
                         </div>
                         <button id="btn-${item.id}" onclick="buy('${item.id}')" class="btn text-xs w-24 border-gray-500">
-                            BUY: <span class="price">0</span>
+                            <span class="lbl-buy">BUY</span>: <span class="price">0</span>
                         </button>
                     `;
                     grid.appendChild(div);
@@ -912,14 +991,13 @@
                 shopGenerated = true;
             }
 
-            // Update items
             SHOP.forEach(item => {
                 const btn = document.getElementById(`btn-${item.id}`);
                 const title = document.getElementById(`title-${item.id}`);
                 const desc = document.getElementById(`desc-${item.id}`);
                 const countEl = document.getElementById(`count-${item.id}`);
+                const div = document.getElementById(`shop-div-${item.id}`);
 
-                // Mystery Logic for Ancient Tablet
                 let displayName = item.name;
                 let displayDesc = item.desc;
                 
@@ -928,13 +1006,14 @@
                      displayDesc = "???";
                 }
 
-                if(title) title.innerText = lol ? lolcat(displayName) : displayName;
-                if(desc) desc.innerText = lol ? lolcat(displayDesc) : displayDesc;
+                if(title) title.innerText = getText(displayName);
+                if(desc) desc.innerText = getText(displayDesc);
                 if(countEl) countEl.innerText = state.shopCounts[item.id] || 0;
+                div.querySelector('.lbl-owned').innerText = getText("OWNED");
 
                 if (item.special && state.shopCounts[item.id] > 0) {
                     btn.disabled = true;
-                    btn.innerHTML = `OWNED`;
+                    btn.innerHTML = getText(`OWNED`);
                     btn.classList.add('opacity-50');
                 } else {
                     const count = state.shopCounts[item.id] || 0;
@@ -942,24 +1021,23 @@
                     if(state.skills.cheap_shop) price = Math.floor(price * 0.95);
                     
                     btn.disabled = state.clocks < price;
-                    btn.innerHTML = `BUY: <span class="price">${formatNum(price)}</span>`;
+                    const buyText = getText("BUY");
+                    btn.innerHTML = `${buyText}: <span class="price">${formatNum(price)}</span>`;
                 }
             });
         }
 
         function renderDistractionsUI() {
-            const lol = state.settings.lolcat;
-            // Generate distractions handled by renderDistractions(), here we update visuals
             DISTRACTIONS.forEach(d => {
                 const unlocked = state.unlocks[d.id];
                 const btnMob = document.getElementById(`dist-btn-${d.id}-mob`);
                 const btnDesk = document.getElementById(`dist-btn-${d.id}-desk`);
 
-                // Ensure labels match lolcat mode
-                const name = lol ? lolcat(d.name) : d.name;
-                const desc = lol ? lolcat(d.desc) : d.desc;
-                const costLabel = lol ? "BUY" : "BUY";
-                const launchLabel = lol ? "LAUNCH" : "LAUNCH";
+                const name = getText(d.name);
+                const desc = getText(d.desc);
+                const costLabel = getText("BUY");
+                const launchLabel = getText("LAUNCH");
+                const lockedLabel = getText("LOCKED");
                 
                 const updateCard = (el) => {
                     if(!el) return;
@@ -968,7 +1046,7 @@
                         el.querySelector('.dist-desc').innerText = desc;
                         el.querySelector('button').innerText = launchLabel;
                     } else {
-                         el.querySelector('.dist-name').innerText = "LOCKED";
+                         el.querySelector('.dist-name').innerText = lockedLabel;
                          el.querySelector('.dist-desc').innerText = name;
                          const costTxt = d.curr === 'k' ? `${d.cost} CHRONO` : `${d.cost} CLOCKS`;
                          el.querySelector('button').innerText = `${costLabel}: ${costTxt}`;
@@ -995,7 +1073,7 @@
         // --- Formatting ---
         function formatNum(num) {
             if (num < 1000) return Math.floor(num * 10) / 10;
-            const suffixes = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx"];
+            const suffixes = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
             const suffixNum = Math.floor(Math.log10(num) / 3);
             if (suffixNum === 0) return Math.floor(num * 10) / 10; 
             if (suffixNum >= suffixes.length) return num.toExponential(2);
@@ -1011,7 +1089,15 @@
                        .replace(/SHOP/g, "SHOPPE").replace(/UNLOCK/g, "UNLOK")
                        .replace(/WHAT/g, "WUT").replace(/WAIT/g, "WAET")
                        .replace(/UPDATE/g, "UPDAET").replace(/MYSTERY/g, "MISTERY")
-                       .replace(/GIFT/g, "GIFTZ").replace(/SATISFACTION/g, "HAPPINESS");
+                       .replace(/GIFT/g, "GIFTZ").replace(/SATISFACTION/g, "HAPPINESS")
+                       .replace(/VOID/g, "VOYD").replace(/JANITOR/g, "CAT")
+                       .replace(/ACHIEVEMENT/g, "CHEEVMENT")
+                       .replace(/NOTHING/g, "NUFFIN")
+                       .replace(/HAPPENED/g, "HAPPND")
+                       .replace(/CHECKING/g, "CHECKN")
+                       .replace(/JUST/g, "JUS")
+                       .replace(/SYSTEM/g, "SISTEM")
+                       .replace(/READY/g, "REDDY");
         }
 
         // --- Actions ---
@@ -1020,15 +1106,12 @@
             const cost = getConversionCost();
             if (state.seconds >= cost) {
                 state.seconds -= cost;
-                
                 let gain = 1;
                 if(state.skills.compound) gain = 1.01; 
                 state.clocks += gain;
-                
                 state.conversions++;
                 SFX.play('convert');
                 
-                // Achievement: Speed Demon
                 const now = Date.now();
                 convertClicks.push(now);
                 convertClicks = convertClicks.filter(t => now - t < 5000);
@@ -1045,44 +1128,26 @@
         els.btnConv.onclick = window.convert;
 
         window.bulkConvert = function() {
-            // Robust bulk convert logic with math
             const prestigePenalty = Math.pow(10, state.prestigeCount);
             let scale = CONFIG.CONVERSION_SCALE;
             if(state.skills.eff_expert) scale -= 0.005;
             
             const currentCost = getConversionCost();
-
-            if (state.seconds < currentCost) {
-                SFX.play('error');
-                return;
-            }
-
-            // Calculate max affordable 'n' items where: Cost(n) = Base * Scale^(n+current_conversions)
-            // Simplified: Just loop up to 500 times. Math.log is precise but floating point errors in incremental games can be tricky.
-            // Loop is safe for this scale.
+            if (state.seconds < currentCost) { SFX.play('error'); return; }
             
             let bought = 0;
-            // Cap to prevent freeze, but 500 is instant in modern JS
             for(let i=0; i<250; i++) {
                 const c = Math.floor((CONFIG.BASE_CONVERSION * prestigePenalty) * Math.pow(scale, state.conversions + bought));
                 if (state.seconds >= c) {
                     state.seconds -= c;
                     bought++;
-                } else {
-                    break;
-                }
+                } else break;
             }
 
             if (bought > 0) {
-                // Apply 25% tax (penalty)
-                // "converts 25% less than it would if you convert all the seconds normally"
-                // Means we spent seconds for N conversions, but only gain N * 0.75 clocks.
                 const taxedGain = Math.floor(bought * 0.75);
-                
-                // Need to increment conversions count by the full 'bought' amount so price scales correctly
                 state.conversions += bought;
                 state.clocks += taxedGain;
-
                 SFX.play('convert');
                 log(`BULK: SPENT FOR ${bought}, GAINED ${taxedGain} (TAXED).`);
                 updateUI(0, 1 + state.chronotons*100);
@@ -1095,10 +1160,7 @@
             let price = item.cost + (count * item.cost);
             if(state.skills.cheap_shop) price = Math.floor(price * 0.95);
 
-            // Budgeting Achievement
             if (price - state.clocks === 1) unlockAchievement(ACHIEVEMENTS.find(a => a.id === 'budgeting'));
-            
-            // Persistence Achievement
             if (state.clocks < price) {
                 state.stats.unaffordableTry = (state.stats.unaffordableTry || 0) + 1;
                 SFX.play('error');
@@ -1126,7 +1188,7 @@
                 state.unlocks[id] = true;
                 SFX.play('click');
                 saveGame();
-                renderDistractions(); // Rebuilds grid to show LAUNCH button
+                renderDistractions(); 
             } else { SFX.play('error'); }
         };
 
@@ -1157,11 +1219,10 @@
             state.runSecondsWasted = 0; 
             state.clocks = 0;
             state.conversions = 0;
-            state.shopCounts = { gears: 0, chrono: 0, machine: 0, dilator: 0, toaster: 0, engine: 0, skill_key: 0 };
-            // Keep fragments and skills? Usually yes in prestige.
+            state.shopCounts = { gears: 0, chrono: 0, machine: 0, dilator: 0, toaster: 0, field: 0, trash: 0, dissolver: 0, engine: 0, skill_key: 0 };
             
             saveGame();
-            location.reload(); // Safer to reload to reset rates
+            location.reload(); 
         };
 
         // --- Fake Update ---
@@ -1197,7 +1258,7 @@
             state.timers.lastInput = Date.now();
         }
         window.ctxAction = function() {
-            alert("This feature will be available in the year 600000.");
+            alert(getText("This feature will be available in the year 600000."));
         }
 
         window.resumeIdle = function() {
@@ -1216,6 +1277,7 @@
                 document.getElementById('musicSlider').value = state.settings.musicVol;
                 document.getElementById('hardModeCheck').checked = state.settings.hardMode;
                 document.getElementById('lolcatCheck').checked = state.settings.lolcat;
+                document.getElementById('motionCheck').checked = state.settings.reduceMotion;
             }
             SFX.play('click');
         }
@@ -1229,6 +1291,7 @@
             state.settings.musicVol = parseFloat(document.getElementById('musicSlider').value);
             const hard = document.getElementById('hardModeCheck').checked;
             const lol = document.getElementById('lolcatCheck').checked;
+            state.settings.reduceMotion = document.getElementById('motionCheck').checked;
             
             if (hard && !state.settings.hardMode) unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='worse'));
             state.settings.hardMode = hard;
@@ -1236,14 +1299,12 @@
 
             document.getElementById('sfxVal').innerText = Math.round(state.settings.sfxVol * 100) + "%";
             document.getElementById('musicVal').innerText = Math.round(state.settings.musicVol * 100) + "%";
-            // Music placeholder hook
-            // if(assets.music) assets.music.volume = state.settings.musicVol;
+            assets.music.volume = state.settings.musicVol;
             
             if (hard) document.body.classList.add('hard-mode-active');
             else document.body.classList.remove('hard-mode-active');
             
-            // Force re-render of text
-            shopGenerated = false; // force rebuild shop
+            shopGenerated = false; 
             updateUI(0, 1 + state.chronotons*100);
         }
 
@@ -1255,8 +1316,8 @@
                 const div = document.createElement('div');
                 div.className = `skill-node ${owned ? 'unlocked' : ''}`;
                 div.innerHTML = `
-                    <div class="font-bold">${s.name}</div>
-                    <div class="text-xs text-gray-400 mb-2">${s.desc}</div>
+                    <div class="font-bold">${getText(s.name)}</div>
+                    <div class="text-xs text-gray-400 mb-2">${getText(s.desc)}</div>
                     ${owned ? '<span class="text-green-500 font-bold">UNLOCKED</span>' : 
                       `<button onclick="unlockSkill('${s.id}')" class="btn text-xs border-green-500 text-green-500 w-full">UNLOCK (${s.cost} FRAG)</button>`}
                 `;
@@ -1288,7 +1349,7 @@
                 if(unlocked) count++;
                 const div = document.createElement('div');
                 div.className = `p-2 border ${unlocked ? 'border-yellow-400 text-yellow-400' : 'border-gray-800 text-gray-800'}`;
-                div.innerHTML = `<div class="font-bold text-sm">${a.title}</div><div class="text-xs">${unlocked ? a.desc : 'LOCKED'}</div>`;
+                div.innerHTML = `<div class="font-bold text-sm">${getText(a.title)}</div><div class="text-xs">${unlocked ? getText(a.desc) : 'LOCKED'}</div>`;
                 list.appendChild(div);
             });
             document.getElementById('achieveCount').innerText = `${count} / ${ACHIEVEMENTS.length}`;
@@ -1298,7 +1359,7 @@
             if (!a || state.achievements.includes(a.id)) return;
             state.achievements.push(a.id);
             const toast = document.getElementById('achieveToast');
-            document.getElementById('achieveName').innerText = a.title;
+            document.getElementById('achieveName').innerText = getText(a.title);
             toast.style.bottom = "20px";
             SFX.play('golden');
             setTimeout(() => { toast.style.bottom = "-100px"; }, 3000);
@@ -1316,7 +1377,7 @@
 
         function log(msg) {
             const d = document.createElement('div');
-            d.innerText = `> ${msg}`;
+            d.innerText = `> ${getText(msg)}`;
             els.log.prepend(d);
             if(els.log.children.length > 50) els.log.lastChild.remove();
         }
@@ -1340,7 +1401,6 @@
             div.className = `box flex flex-col items-center justify-center p-2 text-center ${border}`;
             div.id = `dist-btn-${d.id}-${suffix}`;
             
-            // Initial content - updated by renderDistractionsUI
             div.innerHTML = `<div class="font-bold text-xs dist-name">...</div><div class="text-[10px] italic mb-1 dist-desc">...</div><button class="btn w-full text-[10px] p-1">...</button>`;
             
             if (unlocked) {
@@ -1349,6 +1409,19 @@
                 div.onclick = () => buyDist(d.id);
             }
             return div;
+        }
+
+        function addMinigameWindow(id, contentHTML) {
+             const container = document.getElementById('activeMinigame');
+             const winId = `mini-win-${id}`;
+             if(document.getElementById(winId)) {
+                 document.getElementById(winId).remove(); // Restart if already open
+             }
+             const div = document.createElement('div');
+             div.id = winId;
+             div.className = "minigame-window p-2 relative";
+             div.innerHTML = `<div class="minigame-close" onclick="this.parentElement.remove()">X</div>${contentHTML}`;
+             container.prepend(div);
         }
 
         // --- Minigame Actions ---
@@ -1361,9 +1434,9 @@
         }
         
         function toggleSubBox() {
-            state.unlocks.sub_box = true; // Should already be true
+            state.unlocks.sub_box = true; 
             log("SUBSCRIPTION BOX ACTIVE. WAIT 10 MINS.");
-            document.getElementById('activeMinigame').innerHTML = `<div class="p-2 text-center text-xs">SUB BOX RUNNING IN BACKGROUND...</div>`;
+            addMinigameWindow('sub', `<div class="p-2 text-center text-xs">${getText("SUB BOX RUNNING IN BACKGROUND...")}</div>`);
         }
         
         function activateNetflix() {
@@ -1372,53 +1445,107 @@
         }
 
         function renderRock() {
-            els.mini.innerHTML = `<div class="p-4 text-center"><div class="text-4xl mb-2">🪨</div><button onclick="feedRock()" class="btn text-xs">FEED (1 CLOCK)</button></div>`;
+            let html = "";
+            if (state.unlocks.mushroom) {
+                 html = `<div class="p-4 text-center"><div class="text-4xl mb-2">🍄</div><div class="text-xs mb-2">${getText("THE MUSHROOM VIBRATES")}</div><button onclick="feedMushroom()" class="btn text-xs">${getText("FEED (1 CLOCK)")}</button></div>`;
+            } else {
+                 html = `<div class="p-4 text-center"><div class="text-4xl mb-2">🪨</div><div class="text-xs mb-2">${getText("THE ROCK STARES")}</div><button onclick="feedRock()" class="btn text-xs">${getText("FEED (1 CLOCK)")}</button></div>`;
+            }
+            addMinigameWindow('rock', html);
         }
         window.feedRock = function() {
-            if (state.clocks >= 1) { state.clocks--; state.stats.rockFed = (state.stats.rockFed||0)+1; SFX.play('click'); log("ROCK FED."); }
+            if (state.clocks >= 1) { 
+                state.clocks--; state.stats.rockFed = (state.stats.rockFed||0)+1; 
+                SFX.play('click'); 
+                if (state.stats.rockFed >= 50 && !state.unlocks.mushroom) {
+                    state.unlocks.mushroom = true;
+                    log("THE ROCK HAS EVOLVED INTO A MUSHROOM.");
+                    renderRock();
+                } else {
+                    log("ROCK FED."); 
+                }
+            }
+        }
+        window.feedMushroom = function() {
+            if (state.clocks >= 1) {
+                state.clocks--;
+                state.seconds += 10;
+                SFX.play('click');
+                log("FED MUSHROOM. GAINED 10 SECONDS (BAD DEAL).");
+                unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='bad_trade'));
+            }
         }
 
         function renderBubble() {
-            els.mini.innerHTML = `<div class="p-2 text-center"><div id="bubbleGrid" class="grid grid-cols-8 gap-2 bg-gray-900 p-2"></div><button onclick="renderBubble()" class="btn text-xs mt-2">RESET</button></div>`;
+            const html = `<div class="p-2 text-center"><div id="bubbleGrid" class="grid grid-cols-8 gap-2 bg-gray-900 p-2"></div><button onclick="renderBubble()" class="btn text-xs mt-2">${getText("RESET")}</button></div>`;
+            addMinigameWindow('bubble', html);
+            
             const grid = document.getElementById('bubbleGrid');
-            for(let i=0; i<24; i++) {
-                const b = document.createElement('div'); b.className = 'bubble';
-                b.onclick = function() {
-                    if(!this.classList.contains('popped')) {
-                        this.classList.add('popped'); SFX.play('click');
-                        state.stats.bubblesPopped=(state.stats.bubblesPopped||0)+1;
+            if(grid) {
+                for(let i=0; i<24; i++) {
+                    const b = document.createElement('div'); b.className = 'bubble';
+                    b.onclick = function() {
+                        if(!this.classList.contains('popped')) {
+                            this.classList.add('popped'); SFX.play('click');
+                            state.stats.bubblesPopped=(state.stats.bubblesPopped||0)+1;
+                        }
                     }
+                    grid.appendChild(b);
                 }
-                grid.appendChild(b);
             }
         }
 
         function renderChat() {
-            els.mini.innerHTML = `<div class="p-2 h-40 flex flex-col"><div id="chatBox" class="flex-1 overflow-y-auto text-xs bg-gray-900 p-1"></div></div>`;
-            const msgs = ["POG", "LUL", "F", "Lag", "SECRET_BUTTON", "Hello", "When update?", "Skip"];
+            const html = `<div class="p-2 h-40 flex flex-col"><div id="chatBox" class="flex-1 overflow-y-auto text-xs bg-gray-900 p-1"></div></div>`;
+            addMinigameWindow('chat', html);
+            
+            const msgs = [
+                "POG", "LUL", "F", "Lag", "SECRET_BUTTON", "Hello", "When update?", "Skip", "Is this stream productive?", "No", "Void Janitor confirmed",
+                "kappa", "OMEGALUL", "monkaS", "ResidentSleeper", "Jebaited", "KEKW", "PogChamp", "WeirdChamp", "Pepega", "Sadge",
+                "Anyone else seeing the void?", "My clock stopped", "Is this live?", "First", "Ratio", "Dead game", "Buff gears", "Nerf time",
+                "Where is the mushroom?", "Can I have a clock?", "Type 1 if you are waiting", "1", "1", "1", "2", "lol",
+                "Speedrun when?", "I've been here for 40 years", "Just buy the toaster", "Click click click", "Why are we here?"
+            ];
+            const names = [
+                "User123", "TimeLord99", "VoidCat", "LazyBones", "ProcrastinatorX", "EntropyFan", "ClockWatcher", "NullPointer", 
+                "StreamSniper", "Mod_Dave", "Admin_Alice", "Guest_999", "Echo_419", "ChronoTrigger", "Waster_Of_Time", "AFK_King",
+                "NoLifeGiven", "SecondHand", "MinuteMan", "HourGlass", "DayDreamer", "NightOwl", "MorningGlory", "WeekEnd", "MonthPiece",
+                "YearBook", "DecadeDance", "CenturyFox", "MilleniumFalcon", "EonMusk"
+            ];
+            
             const addMsg = () => {
-                if(!document.getElementById('chatBox')) return;
-                const m = msgs[Math.floor(Math.random()*msgs.length)];
-                const div = document.createElement('div');
-                div.innerHTML = `User: ${m}`;
-                if(m === "SECRET_BUTTON" && Math.random() < 0.05) {
-                    div.innerHTML = `User: <button onclick="unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='wait_what'))" class="text-[9px] border px-1">CLICK ME</button>`;
-                }
                 const box = document.getElementById('chatBox');
+                if(!box) return; // Stop if window closed
+                
+                const m = msgs[Math.floor(Math.random()*msgs.length)];
+                const n = names[Math.floor(Math.random()*names.length)];
+                
+                const div = document.createElement('div');
+                div.innerHTML = `<span style="color: #4ade80">${n}:</span> ${getText(m)}`;
+                
+                if(m === "SECRET_BUTTON" && Math.random() < 0.05) {
+                    div.innerHTML = `<span style="color: #f87171">${n}:</span> <button onclick="unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='wait_what'))" class="text-[9px] border px-1">CLICK ME</button>`;
+                }
+                
                 box.appendChild(div);
                 box.scrollTop = box.scrollHeight;
+                if(box.children.length > 50) box.firstChild.remove();
+                
                 state.stats.chatMsgs=(state.stats.chatMsgs||0)+1;
-                setTimeout(addMsg, 500);
+                setTimeout(addMsg, 300 + Math.random()*1000);
             };
             addMsg();
         }
 
         function renderDraw() {
-            els.mini.innerHTML = `<div class="p-2 text-center"><canvas id="drawCanvas" width="200" height="150" style="border:1px dashed #666;background:#111"></canvas><br><button onclick="clearDraw()" class="btn text-xs">CLEAR</button></div>`;
+            const html = `<div class="p-2 text-center"><canvas id="drawCanvas" width="200" height="150" style="border:1px dashed #666;background:#111"></canvas><br><button onclick="clearDraw()" class="btn text-xs">${getText("CLEAR")}</button></div>`;
+            addMinigameWindow('draw', html);
             initDraw();
         }
         function initDraw() {
-            const c = document.getElementById('drawCanvas'); const ctx = c.getContext('2d');
+            const c = document.getElementById('drawCanvas'); 
+            if(!c) return;
+            const ctx = c.getContext('2d');
             let p=false;
             c.onmousedown=()=>{p=true}; c.onmouseup=()=>{p=false;ctx.beginPath()};
             c.onmousemove=(e)=>{
@@ -1427,15 +1554,25 @@
                 ctx.lineTo(e.clientX-r.left,e.clientY-r.top); ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX-r.left,e.clientY-r.top);
             }
         }
-        window.clearDraw=()=>{const c=document.getElementById('drawCanvas');c.getContext('2d').clearRect(0,0,c.width,c.height)};
+        window.clearDraw=()=>{
+            const c=document.getElementById('drawCanvas');
+            if(c) c.getContext('2d').clearRect(0,0,c.width,c.height);
+        };
 
         function renderUnsorter() {
-            els.mini.innerHTML = `<div class="p-2 text-center"><canvas id="unsorterCanvas" width="250" height="200"></canvas><div class="text-xs">Wind: <span id="windTimer">30</span>s</div></div>`;
-            const cvs = document.getElementById('unsorterCanvas'); const ctx = cvs.getContext('2d');
+            const html = `<div class="p-2 text-center"><canvas id="unsorterCanvas" width="250" height="200"></canvas><div class="text-xs">Wind: <span id="windTimer">30</span>s</div></div>`;
+            addMinigameWindow('unsorter', html);
+            
+            const cvs = document.getElementById('unsorterCanvas'); 
+            if(!cvs) return;
+            
+            const ctx = cvs.getContext('2d');
             let pixels = Array(50).fill().map(()=>({x:Math.random()*250,y:Math.random()*200,c:['red','blue'][Math.floor(Math.random()*2)]}));
             let wind=30;
             const t = setInterval(()=>{
-                wind--; if(document.getElementById('windTimer')) document.getElementById('windTimer').innerText=wind;
+                wind--; 
+                const timer = document.getElementById('windTimer');
+                if(timer) timer.innerText=wind;
                 if(wind<=0) { wind=30; pixels.forEach(p=>{p.x=Math.random()*250;p.y=Math.random()*200}); }
                 if(!document.getElementById('unsorterCanvas')) clearInterval(t);
             },1000);
@@ -1454,25 +1591,29 @@
         }
 
         function renderTodo() {
-            els.mini.innerHTML = `<div class="p-2"><div id="todoList" class="h-32 overflow-y-auto text-xs border border-gray-700 mb-2"></div><button onclick="addTodoItem('New Task')" class="btn text-xs w-full">ADD TASK</button></div>`;
+            const html = `<div class="p-2"><div id="todoList" class="h-32 overflow-y-auto text-xs border border-gray-700 mb-2"></div><button onclick="addTodoItem('New Task')" class="btn text-xs w-full">${getText("ADD TASK")}</button></div>`;
+            addMinigameWindow('todo', html);
             addTodoItem("Sort Air");
         }
         window.addTodoItem = function(t) {
+            const list = document.getElementById('todoList');
+            if(!list) return;
             const d = document.createElement('div'); d.className='todo-item';
-            d.innerHTML = `<div class="w-3 h-3 border border-gray-500"></div><span>${t}</span>`;
+            d.innerHTML = `<div class="w-3 h-3 border border-gray-500"></div><span>${getText(t)}</span>`;
             d.onclick = function() { this.remove(); SFX.play('click'); setTimeout(()=>addTodoItem("Regret"),200); setTimeout(()=>addTodoItem("Despair"),200); };
-            document.getElementById('todoList').appendChild(d);
+            list.appendChild(d);
         }
 
         function renderWaiting() {
-            els.mini.innerHTML = `<div class="p-4 text-center"><div class="text-6xl font-mono" id="waitNum">999</div><div class="text-xs">Waiting...</div></div>`;
+            const html = `<div class="p-4 text-center"><div class="text-6xl font-mono" id="waitNum">999</div><div class="text-xs">${getText("Waiting...")}</div></div>`;
+            addMinigameWindow('wait', html);
+            
             let n = 999;
             const i = setInterval(()=>{
                 if(!document.getElementById('waitNum')) { clearInterval(i); return; }
                 n--; document.getElementById('waitNum').innerText=n;
                 if(n<=0) { 
-                    document.getElementById('waitNum').innerText="MISSED"; 
-                    // Professional Waiter Achievement trigger (technically number called)
+                    document.getElementById('waitNum').innerText=getText("MISSED"); 
                     unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='waiter'));
                     n=999; 
                 }
@@ -1480,7 +1621,9 @@
         }
 
         function renderAlmost() {
-            els.mini.innerHTML = `<div class="p-4"><div class="w-full h-8 border border-white p-1"><div id="loadBar" class="h-full bg-white w-0"></div></div><div id="loadPct" class="text-right text-xs">0%</div></div>`;
+            const html = `<div class="p-4"><div class="w-full h-8 border border-white p-1"><div id="loadBar" class="h-full bg-white w-0"></div></div><div id="loadPct" class="text-right text-xs">0%</div></div>`;
+            addMinigameWindow('almost', html);
+            
             let p=0;
             function step() {
                 if(!document.getElementById('loadBar')) return;
@@ -1498,7 +1641,8 @@
         }
         
         function renderDontClick() {
-             els.mini.innerHTML = `<div class="p-8 text-center"><button onclick="dontClick()" class="w-32 h-32 rounded-full bg-red-600 font-bold text-white">DO NOT CLICK</button></div>`;
+             const html = `<div class="p-8 text-center"><button onclick="dontClick()" class="w-32 h-32 rounded-full bg-red-600 font-bold text-white">${getText("DO NOT CLICK")}</button></div>`;
+             addMinigameWindow('dont', html);
         }
         window.dontClick = function() {
             SFX.play('ding'); state.seconds=0; updateUI(0,1);
@@ -1520,8 +1664,6 @@
             const ctx = els.cvs.getContext('2d');
             ctx.clearRect(0, 0, els.cvs.width, els.cvs.height);
             dvd.x += dvd.dx; dvd.y += dvd.dy;
-            let hit = false;
-            // Corners check for achievement
             const w = els.cvs.width; const h = els.cvs.height;
             if ((dvd.x<=5||dvd.x+dvd.w>=w-5) && (dvd.y<=5||dvd.y+dvd.h>=h-5)) {
                 unlockAchievement(ACHIEVEMENTS.find(a=>a.id==='long_dist'));
@@ -1543,9 +1685,9 @@
         }
 
         function toggleMusic() { 
-            // Placeholder: In a real environment, this would toggle the audio element
-            musicPlaying = !musicPlaying;
-            log(musicPlaying ? "MUSIC: ON" : "MUSIC: OFF");
+            if(assets.music.paused) assets.music.play();
+            else assets.music.pause();
+            log(assets.music.paused ? "MUSIC: OFF" : "MUSIC: ON");
         }
 
         function spawnGoldenSecond() {
@@ -1554,10 +1696,9 @@
             
             const capture = () => {
                 if (el.parentNode && !el.classList.contains('captured')) {
-                    el.classList.add('captured'); el.innerText = "CAPTURED!";
+                    el.classList.add('captured'); el.innerText = getText("CAPTURED!");
                     state.seconds += 60; state.totalSecondsWasted += 60; state.runSecondsWasted += 60;
                     SFX.play('golden'); log("+60s");
-                    // Spree logic
                     const now = Date.now();
                     goldenSpree.push(now);
                     goldenSpree = goldenSpree.filter(t => now - t < 60000);
@@ -1615,14 +1756,40 @@
             renderDistractions();
         }
 
+        // --- DevTools Actions ---
+        window.devAddSec = function() { state.seconds+=10000; updateUI(0,1); saveGame(); }
+        window.devAddClk = function() { state.clocks+=1000; updateUI(0,1); saveGame(); }
+        window.devAddChr = function() { state.chronotons+=5; updateUI(0,1); saveGame(); }
+        window.devUnlockAll = function() { ACHIEVEMENTS.forEach(a=>unlockAchievement(a)); updateUI(0,1); saveGame(); }
+
         window.onload = function() {
             loadGame();
+            const quotes = [
+                "SYSTEM_READY...", "LOADING_VOID...", "STAGNATION_INITIATED...", 
+                "PRODUCTIVITY_PURGED...", "NULLA_ACTIO_MAXIMA_SALUS", 
+                "TIME_IS_A_FLAT_CIRCLE...", "FEED_THE_VOID...", "DO_NOT_PANIC..."
+            ];
+            log(quotes[Math.floor(Math.random()*quotes.length)]);
+
             document.getElementById('startOverlay').onclick = function() {
                 if(ctxAudio.state === 'suspended') ctxAudio.resume();
+                assets.music.play().catch(e=>console.log("Audio play failed:",e));
                 this.remove(); 
                 requestAnimationFrame(gameLoop);
             };
             window.onresize = () => { els.cvs.width = window.innerWidth; els.cvs.height = window.innerHeight; };
+            
+            // Devtools Listener
+            window.addEventListener('keydown', (e) => {
+                keyBuffer += e.key;
+                if (keyBuffer.length > 20) keyBuffer = keyBuffer.slice(-20);
+                if (keyBuffer.endsWith("devtools")) {
+                    keyBuffer = "";
+                    if(prompt("PASSWORD?") === "admin") {
+                        document.getElementById('devtoolsPanel').style.display = 'block';
+                    }
+                }
+            });
             window.onmousemove = () => { state.timers.lastInput = Date.now(); };
         };
     </script>
