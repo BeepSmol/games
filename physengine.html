@@ -284,16 +284,22 @@
                             <div class="bg-white border border-gray-400 p-1">
                                 <strong>API.getPlayerPos()</strong><br>
                                 <strong>API.setPlayerPos(x, y, z)</strong><br>
+                                <strong>API.setPlayerSpeed(val) / API.setPlayerJump(val)</strong><br>
+                                <strong>API.getCameraDir()</strong><br>
                                 <strong>API.setVelocity(id, x, y, z)</strong><br>
                                 <strong>API.applyForce(id, x, y, z)</strong>
+                                <strong>API.setObjectPos(id, x, y, z) / API.setObjectRot(id, x, y, z)</strong><br>
+                                <strong>API.getObjectPos(id)</strong>
                             </div>
                             <div class="bg-white border border-gray-400 p-1">
-                                <strong>API.raycast()</strong> -> {hasHit, point, objectId, tag}<br>
+                                <strong>API.raycast()</strong> -> {hasHit, point, normal, objectId, tag}<br>
+                                <strong>API.spawnExplosion(x, y, z, force, rad)</strong><br>
                                 <strong>API.playSound(freq, type, dur)</strong>
                             </div>
                             <div class="bg-white border border-gray-400 p-1">
                                 <strong>API.createButton(id, txt, x, y, fn)</strong><br>
                                 <strong>API.createText(id, txt, x, y, col)</strong><br>
+                                <strong>API.createPanel(id, x, y, w, h, col)</strong><br>
                                 <strong>API.removeUI(id) / API.clearUI()</strong>
                             </div>
                             <div class="bg-white border border-gray-400 p-1 text-blue-800">
@@ -314,6 +320,7 @@
                             <div class="bg-white border border-gray-400 p-1">
                                 <strong>API.setGravity(value)</strong><br>
                                 <strong>API.setSkyColor(hex)</strong><br>
+                                <strong>API.setTimeScale(val)</strong><br>
                                 Adjust world gravity (negative values pull down)
                             </div>
                             
@@ -324,6 +331,8 @@
                             <button class="retro-button w-full py-1 text-xs mb-1" onclick="WG.Mod.loadExample('shooter')">"Target Practice" (FPS)</button>
                             <button class="retro-button w-full py-1 text-xs mb-1" onclick="WG.Mod.loadExample('platformer')">"Platformer" (Gen)</button>
                             <button class="retro-button w-full py-1 text-xs mb-1" onclick="WG.Mod.loadExample('ui')">"Custom UI & Gravity" (Tool)</button>
+                            <button class="retro-button w-full py-1 text-xs mb-1" onclick="WG.Mod.loadExample('builder')">"Minecraft Builder" (Tool)</button>
+                            <button class="retro-button w-full py-1 text-xs mb-1" onclick="WG.Mod.loadExample('gravgun')">"Gravity Gun" (Weapon)</button>
                         </div>
                     </div>
                     
@@ -340,6 +349,43 @@ API.print("Script Loaded!");
                     <button class="retro-button px-6 py-1 text-gray-800" onclick="WG.Mod.exportScript()">Export Script (.js)</button>
                     <button class="retro-button px-6 py-1 text-red-800" onclick="WG.Mod.clear()">Clear Scripts</button>
                     <button class="retro-button px-6 py-1 font-bold text-blue-900" onclick="WG.Mod.execute()">Inject & Run Script</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OBJ Import Modal -->
+        <div id="obj-import-modal" class="interactive hidden absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+            <div class="retro-panel w-[400px] flex flex-col shadow-2xl">
+                <div class="retro-title flex justify-between">
+                    <span>Import OBJ Settings</span>
+                    <button class="bg-gray-300 text-black px-1 border border-gray-100 border-b-gray-600 border-r-gray-600 text-xs cursor-pointer font-bold leading-none flex items-center" onclick="WG.UI.closeModals()">&times;</button>
+                </div>
+                <div class="p-4 flex flex-col gap-3 bg-[#d4d0c8]">
+                    <div class="flex flex-col">
+                        <label class="text-xs font-bold mb-1">Model Name</label>
+                        <input type="text" id="obj-name" class="retro-inset px-2 py-1 text-sm">
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="flex-1 flex flex-col">
+                            <label class="text-xs font-bold mb-1">Scale</label>
+                            <input type="number" id="obj-scale" value="1" step="0.1" class="retro-inset px-2 py-1 text-sm">
+                        </div>
+                        <div class="flex-1 flex flex-col">
+                            <label class="text-xs font-bold mb-1">Mass</label>
+                            <input type="number" id="obj-mass" value="5" class="retro-inset px-2 py-1 text-sm">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold">Override Color</label>
+                        <input type="color" id="obj-color" value="#ffffff" class="h-6 w-10 cursor-pointer">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="obj-bouncy">
+                        <label class="text-xs font-bold">Bouncy Material</label>
+                    </div>
+                    <div class="flex justify-end mt-2">
+                        <button class="retro-button px-6 py-1 font-bold" onclick="WG.UI.finalizeOBJImport()">Import</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -437,6 +483,7 @@ window.WG = {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.localClippingEnabled = true;
 
         const ambient = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient);
@@ -560,7 +607,7 @@ window.WG = {
     spawnPrimitive: function(type, x, y, z, opts = {}) {
         let size = opts.size || [2, 2, 2];
         let color = opts.color || Math.floor(Math.random() * 0xffffff);
-        let mass = opts.isStatic ? 0 : (opts.mass !== undefined ? opts.mass : 5);
+        let mass = (opts.isStatic || opts.anchored) ? 0 : (opts.mass !== undefined ? opts.mass : 5);
         let matType = opts.bouncy ? this.materials.bouncy : this.materials.standard;
 
         let geo, shape;
@@ -619,19 +666,30 @@ window.WG = {
 
         this.world.addBody(body);
         
-        const obj = { id: Math.random().toString(36).substr(2,9), type: 'primitive', subType: type, mesh, body, opts: { size, color, mass, bouncy: opts.bouncy, isThruster: opts.isThruster, isBalloon: opts.isBalloon, modTag: opts.modTag } };
+        if(opts.isSpeedPad) {
+            body.addEventListener("collide", (e) => {
+                // Boost in local Z direction (forward for the pad)
+                const forward = new CANNON.Vec3(0,0,1);
+                const worldForward = body.quaternion.vmult(forward);
+                // Apply boost state
+                e.body.speedBoostDir = worldForward;
+                e.body.speedBoostTimer = 0.5;
+            });
+        }
+
+        const obj = { id: Math.random().toString(36).substr(2,9), type: 'primitive', subType: type, mesh, body, opts: { size, color, mass, bouncy: opts.bouncy, isThruster: opts.isThruster, isBalloon: opts.isBalloon, isSpeedPad: opts.isSpeedPad, modTag: opts.modTag } };
         
         this.objects.push(obj);
         return obj;
     },
 
-    spawnCustomModel: function(name, x, y, z, rotation) {
+    spawnCustomModel: function(name, x, y, z, rotation, opts={}) {
         const def = this.customModels[name];
         if(!def) return null;
 
         const group = new THREE.Group();
         const matType = def.bouncy ? this.materials.bouncy : this.materials.standard;
-        const totalMass = def.mass !== undefined ? parseFloat(def.mass) : 5;
+        const totalMass = (opts.anchored) ? 0 : (def.mass !== undefined ? parseFloat(def.mass) : 5);
 
         const body = new CANNON.Body({ mass: totalMass, material: matType, position: new CANNON.Vec3(x, y, z) });
         body.velocity.set(0,0,0);
@@ -641,33 +699,66 @@ window.WG = {
 
         def.parts.forEach(part => {
             let geo, shape;
-            let sz = part.size.map(Number);
-            let off = part.offset.map(Number);
             
             if(part.type === 'box') {
+                let sz = part.size.map(Number);
+                let off = part.offset.map(Number);
                 geo = new THREE.BoxGeometry(sz[0], sz[1], sz[2]);
                 shape = new CANNON.Box(new CANNON.Vec3(sz[0]/2, sz[1]/2, sz[2]/2));
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(off[0], off[1], off[2]);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                group.add(mesh);
+                body.addShape(shape, new CANNON.Vec3(off[0], off[1], off[2]));
             } else if (part.type === 'sphere') {
+                let sz = part.size.map(Number);
+                let off = part.offset.map(Number);
                 geo = new THREE.SphereGeometry(sz[0]/2, 16, 16);
                 shape = new CANNON.Sphere(sz[0]/2);
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(off[0], off[1], off[2]);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                group.add(mesh);
+                body.addShape(shape, new CANNON.Vec3(off[0], off[1], off[2]));
+            } else if (part.type === 'mesh') {
+                geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(part.vertices, 3));
+                if(part.faces && part.faces.length > 0) geo.setIndex(part.faces);
+                geo.computeVertexNormals();
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7, side: THREE.DoubleSide });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                group.add(mesh);
+                try {
+                    shape = new CANNON.Trimesh(part.vertices, part.faces);
+                    body.addShape(shape);
+                } catch(e) { console.error("Physics shape error", e); }
             }
-            
-            const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(off[0], off[1], off[2]);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            group.add(mesh);
-
-            body.addShape(shape, new CANNON.Vec3(off[0], off[1], off[2]));
         });
 
         if(rotation) body.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
 
         this.scene.add(group);
         this.world.addBody(body);
-        const obj = { id: Math.random().toString(36).substr(2,9), type: 'custom', modelName: name, mesh: group, body: body, opts: {mass: totalMass} };
+        const obj = { id: Math.random().toString(36).substr(2,9), type: 'custom', modelName: name, mesh: group, body: body, opts: Object.assign({mass: totalMass}, opts) };
         this.objects.push(obj);
         return obj;
+    },
+
+    updateSpeedBoosts: function(delta) {
+        const apply = (body) => {
+            if(body.speedBoostTimer > 0 && body.speedBoostDir) {
+                body.speedBoostTimer -= delta;
+                // Apply continuous force
+                body.applyForce(body.speedBoostDir.scale(80 * body.mass), body.position);
+            }
+        };
+        if(this.Player.body) apply(this.Player.body);
+        this.objects.forEach(o => {
+            if(o.body) apply(o.body);
+        });
     },
 
     syncPhysics: function() {
@@ -712,6 +803,7 @@ window.WG = {
         this.Player.update(delta);
         this.Tools.update(delta);
         this.Mod.update(delta);
+        this.updateSpeedBoosts(delta);
 
         this.world.step(1/60, delta, 3);
         this.syncPhysics();
@@ -803,6 +895,7 @@ WG.Player = {
     
     accel: 50,       // Slower acceleration for accuracy
     maxSpeed: 15,    // Lower terminal horizontal velocity
+    jumpForce: 15,
     friction: 0.85,  
 
     init: function() {
@@ -862,7 +955,7 @@ WG.Player = {
 
         if(isDown && document.pointerLockElement === document.body) {
             if(e.code === 'Space' && this.canJump) {
-                this.body.velocity.y = 15; 
+                this.body.velocity.y = this.jumpForce; 
                 this.canJump = false;
                 WG.System.Sound.playTone(150, 'sine', 0.2, 0.1, 300);
             }
@@ -898,6 +991,8 @@ WG.Player = {
         this.yaw.position.copy(this.body.position);
         this.yaw.position.y += 0.5;
 
+        const isBoosting = this.body.speedBoostTimer > 0;
+
         // Accurate Jump Raycast directly below
         const pos = this.body.position;
         const start = new CANNON.Vec3(pos.x, pos.y - this.radius + 0.12, pos.z);
@@ -931,13 +1026,14 @@ WG.Player = {
             this.body.velocity.z += dir.z * this.accel * delta;
 
             const horiz = new THREE.Vector2(this.body.velocity.x, this.body.velocity.z);
-            if(horiz.length() > this.maxSpeed) {
-                horiz.normalize().multiplyScalar(this.maxSpeed);
+            const limit = isBoosting ? 100 : this.maxSpeed;
+            if(horiz.length() > limit) {
+                horiz.normalize().multiplyScalar(limit);
                 this.body.velocity.x = horiz.x;
                 this.body.velocity.z = horiz.y;
             }
         } else {
-            if(this.canJump) { 
+            if(this.canJump && !isBoosting) { 
                 this.body.velocity.x *= Math.pow(this.friction, delta * 60);
                 this.body.velocity.z *= Math.pow(this.friction, delta * 60);
             }
@@ -1311,7 +1407,7 @@ WG.Tools = {
 // PORTALS SYSTEM (Floor Fixes)
 // ========================================================
 WG.Portals = {
-    blue: null, orange: null, width: 4, height: 6, offset: 0.3, // distance from surface
+    blue: null, orange: null, width: 4, height: 6, offset: 0.05, // distance from surface
 
     init: function() {
         this.rtBlue = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
@@ -1372,7 +1468,7 @@ WG.Portals = {
         const camVec = WG.camera.position.clone().sub(hit.point);
         if(camVec.dot(normal) < 0) normal.negate();
         // place portal slightly off the surface so it's visually flush
-        const off = typeof this.offset === 'number' ? this.offset : 0.1;
+        const off = typeof this.offset === 'number' ? this.offset : 0.05;
         mesh.position.copy(hit.point).add(normal.clone().multiplyScalar(off));
 
         // calculate rotation based on camera pitch snapped to 90° increments and build a local portal basis
@@ -1413,6 +1509,11 @@ WG.Portals = {
             cam.quaternion.copy(mainCamQuat).premultiply(qTotal);
             cam.near = Math.max(0.1, cam.position.distanceTo(dest.pos) * 0.9); 
             cam.updateProjectionMatrix();
+            
+            // Clipping to prevent seeing behind the portal wall
+            const destNormal = dest.normal.clone();
+            const clipPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(destNormal, dest.pos);
+            WG.renderer.clippingPlanes = [clipPlane];
         };
 
         setupCam(this.camBlue, this.blue, this.orange);
@@ -1430,6 +1531,7 @@ WG.Portals = {
         this.meshBlue.visible = true;
 
         WG.renderer.setRenderTarget(null);
+        WG.renderer.clippingPlanes = [];
     },
 
     updatePhysics: function() {
@@ -1454,7 +1556,10 @@ WG.Portals = {
         if(Math.abs(rel.x) > this.width/2 - 0.2 || Math.abs(rel.y) > this.height/2 - 0.2) return;
 
         // Distance check: trigger before hitting the wall (radius approx 1.0)
-        if (rel.z > 2.0 || rel.z < -1.0) return;
+        if (rel.z > 2.0 || rel.z < -2.0) return;
+
+        // Cooldown check
+        if (body.portalCooldown && Date.now() < body.portalCooldown) return;
 
         const vel = new THREE.Vector3(body.velocity.x, body.velocity.y, body.velocity.z);
         const localVel = vel.clone().applyQuaternion(qInv);
@@ -1480,11 +1585,17 @@ WG.Portals = {
                     q.premultiply(qTotal);
                     body.quaternion.set(q.x, q.y, q.z, q.w);
                 } else {
-                    let playerQ = WG.Player.yaw.quaternion.clone();
+                    const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), WG.Player.yaw.rotation.y);
+                    const qPitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), WG.Player.pitch.rotation.x);
+                    let playerQ = qYaw.multiply(qPitch);
                     playerQ.premultiply(qTotal);
                     const euler = new THREE.Euler().setFromQuaternion(playerQ, 'YXZ');
                     WG.Player.yaw.rotation.y = euler.y;
+                    WG.Player.pitch.rotation.x = euler.x;
                 }
+                
+                if(isPlayer) WG.System.Sound.playTone(200, 'sawtooth', 0.1, 0.1);
+                body.portalCooldown = Date.now() + 500;
             }
         }
 };
@@ -1566,6 +1677,10 @@ WG.UI = {
                         <div class="w-8 h-10 bg-green-500 mb-1 border border-black rounded-sm"></div>
                         <span class="text-[10px]">Cylinder</span>
                     </button>
+                    <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawnSpecial('speedpad')">
+                        <span class="text-2xl mb-1">⏩</span>
+                        <span class="text-[10px]">Speed Pad</span>
+                    </button>
                     <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawnSpecial('bouncy')">
                         <span class="text-2xl mb-1">🟢</span>
                         <span class="text-[10px]">Bouncy Ball</span>
@@ -1593,6 +1708,7 @@ WG.UI = {
             <div class="flex gap-2 mb-4">
                 <button class="retro-button py-2 px-3 text-sm" onclick="WG.UI.exportModels()">Export Models (JSON)</button>
                 <button class="retro-button py-2 px-3 text-sm" onclick="WG.UI.importModels()">Import Models (JSON)</button>
+                <button class="retro-button py-2 px-3 text-sm" onclick="WG.UI.importOBJ()">Import OBJ</button>
             </div>
             <div class="grid grid-cols-4 gap-3">`;
             const keys = Object.keys(WG.customModels);
@@ -1757,6 +1873,146 @@ WG.UI = {
         input.click();
     },
 
+    importOBJ: function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.obj';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                this.pendingOBJContent = ev.target.result;
+                document.getElementById('obj-name').value = file.name.replace(/\.obj$/i,'');
+                document.getElementById('obj-import-modal').classList.remove('hidden');
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    },
+
+    finalizeOBJImport: function() {
+        if(!this.pendingOBJContent) return;
+        
+        try {
+            const name = document.getElementById('obj-name').value.trim() || 'Imported_Model';
+            const scale = parseFloat(document.getElementById('obj-scale').value) || 1;
+            const mass = parseFloat(document.getElementById('obj-mass').value) || 5;
+            const bouncy = document.getElementById('obj-bouncy').checked;
+            const color = document.getElementById('obj-color').value;
+
+            const loader = new THREE.OBJLoader();
+            const obj = loader.parse(this.pendingOBJContent);
+            const parts = [];
+            
+            obj.updateMatrixWorld(true);
+            obj.traverse((m) => {
+                if(m.isMesh) {
+                    const geo = m.geometry;
+                    const pos = geo.attributes.position;
+                    const verts = [];
+                    const faces = [];
+                    const mat = m.matrixWorld;
+                    const v = new THREE.Vector3();
+                    
+                    for(let i=0; i<pos.count; i++) {
+                        v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+                        v.applyMatrix4(mat);
+                        v.multiplyScalar(scale);
+                        verts.push(v.x, v.y, v.z);
+                    }
+                    
+                    if(geo.index) {
+                        for(let i=0; i<geo.index.count; i++) faces.push(geo.index.getX(i));
+                    } else {
+                        for(let i=0; i<pos.count; i++) faces.push(i);
+                    }
+                    
+                    parts.push({ type: 'mesh', vertices: verts, faces: faces, color: color });
+                }
+            });
+
+            // Auto-orient: Lay flat on largest side
+            if (parts.length > 0) {
+                // 1. Center the object
+                let min = new THREE.Vector3(Infinity, Infinity, Infinity);
+                let max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+                parts.forEach(p => {
+                    for(let i=0; i<p.vertices.length; i+=3) {
+                        min.x = Math.min(min.x, p.vertices[i]);
+                        min.y = Math.min(min.y, p.vertices[i+1]);
+                        min.z = Math.min(min.z, p.vertices[i+2]);
+                        max.x = Math.max(max.x, p.vertices[i]);
+                        max.y = Math.max(max.y, p.vertices[i+1]);
+                        max.z = Math.max(max.z, p.vertices[i+2]);
+                    }
+                });
+                const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+                parts.forEach(p => {
+                    for(let i=0; i<p.vertices.length; i+=3) {
+                        p.vertices[i] -= center.x;
+                        p.vertices[i+1] -= center.y;
+                        p.vertices[i+2] -= center.z;
+                    }
+                });
+
+                // 2. Find largest flat surface normal
+                const normalMap = {};
+                let maxArea = 0;
+                let bestNormal = new THREE.Vector3(0, -1, 0);
+
+                parts.forEach(p => {
+                    const v = p.vertices;
+                    const f = p.faces;
+                    for(let i=0; i<f.length; i+=3) {
+                        const ia = f[i]*3, ib = f[i+1]*3, ic = f[i+2]*3;
+                        const a = new THREE.Vector3(v[ia], v[ia+1], v[ia+2]);
+                        const b = new THREE.Vector3(v[ib], v[ib+1], v[ib+2]);
+                        const c = new THREE.Vector3(v[ic], v[ic+1], v[ic+2]);
+                        const cross = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+                        const area = cross.length() * 0.5;
+                        const norm = cross.normalize();
+                        const key = `${Math.round(norm.x*10)},${Math.round(norm.y*10)},${Math.round(norm.z*10)}`;
+                        if(!normalMap[key]) normalMap[key] = { area: 0, norm: norm };
+                        normalMap[key].area += area;
+                    }
+                });
+
+                for(const k in normalMap) {
+                    if(normalMap[k].area > maxArea) {
+                        maxArea = normalMap[k].area;
+                        bestNormal = normalMap[k].norm;
+                    }
+                }
+
+                // 3. Rotate to align bestNormal with DOWN (0, -1, 0)
+                if(bestNormal.lengthSq() > 0.5) {
+                    const q = new THREE.Quaternion().setFromUnitVectors(bestNormal, new THREE.Vector3(0, -1, 0));
+                    parts.forEach(p => {
+                        const v = p.vertices;
+                        for(let i=0; i<v.length; i+=3) {
+                            const vec = new THREE.Vector3(v[i], v[i+1], v[i+2]);
+                            vec.applyQuaternion(q);
+                            v[i] = vec.x;
+                            v[i+1] = vec.y;
+                            v[i+2] = vec.z;
+                        }
+                    });
+                }
+            }
+
+            WG.customModels[name] = { name: name, parts: parts, bouncy: bouncy, mass: mass };
+            WG.Data.saveModel(name, WG.customModels[name]);
+            WG.UI.switchTab('custom');
+            WG.Mod.API.print('OBJ imported: ' + name, '#4ade80');
+            this.closeModals();
+            this.pendingOBJContent = null;
+
+        } catch(err) {
+            alert('Import Failed: ' + err.message);
+        }
+    },
+
     // Material Editor helpers
     matSelectionId: null,
     openMaterialEditor: function() { document.getElementById('material-editor').classList.remove('hidden'); document.getElementById('mat-selected').innerText = this.matSelectionId || 'none'; },
@@ -1801,6 +2057,13 @@ WG.UI = {
         if(special === 'plank') WG.spawnPrimitive('box', pos.x, pos.y, pos.z, { size: [15, 0.5, 3], mass: 5, color: '#c19a6b' });
         if(special === 'thruster') WG.spawnPrimitive('cylinder', pos.x, pos.y, pos.z, { size: [2, 4], mass: 2, color: '#ffaa00', isThruster: true });
         if(special === 'balloon') WG.spawnPrimitive('sphere', pos.x, pos.y, pos.z, { size: [4], mass: 0.5, color: '#ff66b2', isBalloon: true });
+        if(special === 'speedpad') {
+            const obj = WG.spawnPrimitive('box', pos.x, pos.y, pos.z, { size: [4, 0.2, 6], mass: 10, color: '#00ffff', isSpeedPad: true });
+            // Slope it up slightly so it's easier to step onto
+            const q = new CANNON.Quaternion();
+            q.setFromAxisAngle(new CANNON.Vec3(1,0,0), -0.2);
+            obj.body.quaternion = obj.body.quaternion.mult(q);
+        }
 
         this.toggleQMenu(false);
         WG.lockPointer();
@@ -1815,7 +2078,8 @@ WG.UI = {
 
     modalsOpen: function() {
         return !document.getElementById('model-maker').classList.contains('hidden') || 
-               !document.getElementById('mod-creator').classList.contains('hidden');
+               !document.getElementById('mod-creator').classList.contains('hidden') ||
+               !document.getElementById('obj-import-modal').classList.contains('hidden');
     },
 
     hideAll: function() {
@@ -1829,6 +2093,7 @@ WG.UI = {
     closeModals: function() {
         document.getElementById('model-maker').classList.add('hidden');
         document.getElementById('mod-creator').classList.add('hidden');
+        document.getElementById('obj-import-modal').classList.add('hidden');
         this.MM.isOpen = false;
     },
 
@@ -1954,10 +2219,29 @@ WG.Mod = {
         
         getPlayerPos: () => ({x: WG.Player.body.position.x, y: WG.Player.body.position.y, z: WG.Player.body.position.z}),
         setPlayerPos: (x, y, z) => { WG.Player.body.position.set(x, y, z); WG.Player.body.velocity.set(0,0,0); },
+        setPlayerSpeed: (v) => { WG.Player.maxSpeed = v; },
+        setPlayerJump: (v) => { WG.Player.jumpForce = v; },
+        getCameraDir: () => {
+            const dir = new THREE.Vector3();
+            WG.camera.getWorldDirection(dir);
+            return {x:dir.x, y:dir.y, z:dir.z};
+        },
         
         setVelocity: (id, x, y, z) => {
             const obj = WG.objects.find(o => o.id === id);
             if(obj && obj.body) { obj.body.velocity.set(x, y, z); obj.body.wakeUp(); }
+        },
+        setObjectPos: (id, x, y, z) => {
+            const obj = WG.objects.find(o => o.id === id);
+            if(obj && obj.body) { obj.body.position.set(x, y, z); obj.body.velocity.set(0,0,0); obj.body.angularVelocity.set(0,0,0); obj.body.wakeUp(); }
+        },
+        setObjectRot: (id, x, y, z) => {
+            const obj = WG.objects.find(o => o.id === id);
+            if(obj && obj.body) { obj.body.quaternion.setFromEuler(x, y, z); obj.body.wakeUp(); }
+        },
+        getObjectPos: (id) => {
+            const obj = WG.objects.find(o => o.id === id);
+            return obj ? {x:obj.body.position.x, y:obj.body.position.y, z:obj.body.position.z} : null;
         },
         applyForce: (id, x, y, z) => {
             const obj = WG.objects.find(o => o.id === id);
@@ -2011,6 +2295,17 @@ WG.Mod = {
             el.innerText = text;
             container.appendChild(el);
         },
+        createPanel: (id, x, y, w, h, color) => {
+            const container = document.getElementById('dynamic-ui');
+            let el = document.getElementById(id);
+            if(el) el.remove();
+            el = document.createElement('div');
+            el.id = id; el.className = 'dyn-element retro-panel';
+            el.style.left = x + 'px'; el.style.top = y + 'px';
+            el.style.width = w + 'px'; el.style.height = h + 'px';
+            el.style.backgroundColor = color || '#c0c0c0';
+            container.appendChild(el);
+        },
         removeUI: (id) => {
             const el = document.getElementById(id);
             if(el) el.remove();
@@ -2025,6 +2320,10 @@ WG.Mod = {
         onMouseDown: (fn) => { WG.Input.onMouseDown(fn); },
         playSound: (freq, type='sine', dur=0.1) => WG.System.Sound.playTone(freq, type, dur, 0.1),
         
+        spawnExplosion: (x, y, z, force, radius) => {
+            WG.System.Explosives.spawn(x, y, z, {force: force||500, radius: radius||10});
+        },
+
         // Permanently freeze an object by id (or body) so it never simulates until unfrozen
         freezePermanent: (idOrBody) => {
             let obj = null;
@@ -2042,12 +2341,14 @@ WG.Mod = {
             WG.scene.background = new THREE.Color(hex);
             WG.scene.fog.color = new THREE.Color(hex);
         },
+        setTimeScale: (v) => { WG.timeScale = v; },
+
         raycast: () => {
             const hits = WG.Tools.raycastObjects();
             if(hits.length > 0) {
                 const hit = hits[0];
                 const obj = WG.objects.find(o => o.mesh === hit.object || (o.mesh.type === 'Group' && o.mesh.children.includes(hit.object)));
-                return { hasHit: true, point: hit.point, distance: hit.distance, objectId: obj ? obj.id : null, tag: obj ? obj.opts.modTag : null };
+                return { hasHit: true, point: hit.point, normal: hit.face.normal, distance: hit.distance, objectId: obj ? obj.id : null, tag: obj ? obj.opts.modTag : null };
             }
             return { hasHit: false };
         },
@@ -2101,7 +2402,7 @@ API.onTick((delta) => {
     if(timer > 1.5) { 
         let pos = API.getPlayerPos();
         API.addCurrency(10); 
-        API.spawn('box', pos.x, pos.y + 40, pos.z, { 
+        API.spawn('box', pos.x + (Math.random()*10-5), pos.y + 40, pos.z + (Math.random()*10-5), { 
             size: [4,4,4], color: 0xff0000, mass: 200, modTag: 'danger' 
         });
         timer = 0;
@@ -2206,6 +2507,57 @@ API.createButton('mybtn', 'Toggle Low Gravity', 20, 140, () => {
         API.setGravity(-4);
     } else {
         API.setGravity(-25);
+    }
+});`;
+        }
+        else if (type === 'builder') {
+            ta.value = `// Minecraft-style Builder
+API.clearUI();
+API.createText('info', 'Left Click: Place | Right Click: Delete', 20, 20, '#fff');
+
+API.onMouseDown((btn) => {
+    let hit = API.raycast();
+    if(!hit.hasHit) return;
+    
+    // Calculate grid position based on hit point and normal
+    let x = hit.point.x + (hit.normal.x * 1);
+    let y = hit.point.y + (hit.normal.y * 1);
+    let z = hit.point.z + (hit.normal.z * 1);
+    
+    // Snap to grid (size 2 blocks)
+    x = Math.round(x / 2) * 2;
+    y = Math.round(y / 2) * 2;
+    z = Math.round(z / 2) * 2;
+    
+    if(btn === 0) { // Left Click - Place
+        API.spawn('box', x, y, z, {
+            size: [2,2,2], color: '#8B4513', mass: 0, modTag: 'block'
+        });
+        API.playSound(600, 'square', 0.05);
+    } else if (btn === 2) { // Right Click - Delete
+        if(hit.tag === 'block') {
+            API.removeObject(hit.objectId);
+            API.playSound(300, 'sawtooth', 0.1);
+        }
+    }
+});`;
+        }
+        else if (type === 'gravgun') {
+            ta.value = `// Gravity Gun Mod
+API.clearUI();
+API.createText('info', 'Right Click to Launch Objects!', 20, 20, '#00ff00');
+
+API.onMouseDown((btn) => {
+    if(btn === 2) { // Right Click
+        let hit = API.raycast();
+        if(hit.hasHit && hit.objectId) {
+            // Calculate direction from player to object
+            let p = API.getPlayerPos();
+            // Launch UP and AWAY
+            API.setVelocity(hit.objectId, 0, 50, 0);
+            API.playSound(200, 'sawtooth', 0.3);
+            API.print("YEET!");
+        }
     }
 });`;
         }
@@ -2383,7 +2735,7 @@ WG.Data = {
     },
 
     serialize: function() {
-        const state = { objects: [], scripts: WG.Mod.savedScripts, gravity: WG.gravity, background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, models: WG.customModels };
+        const state = { objects: [], constraints: [], scripts: WG.Mod.savedScripts, gravity: WG.gravity, background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, models: WG.customModels };
         if(WG.Portals && WG.Portals.blue) state.portalBlue = { pos: [WG.Portals.blue.pos.x, WG.Portals.blue.pos.y, WG.Portals.blue.pos.z], quat: [WG.Portals.blue.quat.x, WG.Portals.blue.quat.y, WG.Portals.blue.quat.z, WG.Portals.blue.quat.w], normal: [WG.Portals.blue.normal.x, WG.Portals.blue.normal.y, WG.Portals.blue.normal.z] };
         if(WG.Portals && WG.Portals.orange) state.portalOrange = { pos: [WG.Portals.orange.pos.x, WG.Portals.orange.pos.y, WG.Portals.orange.pos.z], quat: [WG.Portals.orange.quat.x, WG.Portals.orange.quat.y, WG.Portals.orange.quat.z, WG.Portals.orange.quat.w], normal: [WG.Portals.orange.normal.x, WG.Portals.orange.normal.y, WG.Portals.orange.normal.z] };
         WG.objects.forEach(obj => {
@@ -2396,6 +2748,19 @@ WG.Data = {
                 quat: [obj.body.quaternion.x, obj.body.quaternion.y, obj.body.quaternion.z, obj.body.quaternion.w]
             });
         });
+        WG.constraints.forEach(c => {
+            const objA = WG.objects.find(o => o.body === c.bodyA);
+            const objB = WG.objects.find(o => o.body === c.bodyB);
+            if(objA && objB) {
+                state.constraints.push({
+                    type: 'point',
+                    idA: objA.id,
+                    idB: objB.id,
+                    pivotA: [c.pivotA.x, c.pivotA.y, c.pivotA.z],
+                    pivotB: [c.pivotB.x, c.pivotB.y, c.pivotB.z]
+                });
+            }
+        });
         return state;
     },
 
@@ -2407,9 +2772,23 @@ WG.Data = {
             if(data.type === 'primitive') {
                 WG.spawnPrimitive(data.subType, data.pos[0], data.pos[1], data.pos[2], Object.assign({}, data.opts, {rotation: data.quat}));
             } else if (data.type === 'custom') {
-                WG.spawnCustomModel(data.modelName, data.pos[0], data.pos[1], data.pos[2], data.quat);
+                WG.spawnCustomModel(data.modelName, data.pos[0], data.pos[1], data.pos[2], data.quat, data.opts);
             }
         });
+
+        if(state.constraints) {
+            state.constraints.forEach(cData => {
+                const objA = WG.objects.find(o => o.id === cData.idA);
+                const objB = WG.objects.find(o => o.id === cData.idB);
+                if(objA && objB && objA.body && objB.body) {
+                    const pivotA = new CANNON.Vec3(cData.pivotA[0], cData.pivotA[1], cData.pivotA[2]);
+                    const pivotB = new CANNON.Vec3(cData.pivotB[0], cData.pivotB[1], cData.pivotB[2]);
+                    const constraint = new CANNON.PointToPointConstraint(objA.body, pivotA, objB.body, pivotB);
+                    WG.world.addConstraint(constraint);
+                    WG.constraints.push(constraint);
+                }
+            });
+        }
 
         // restore portals if included
         if(state.portalBlue) {
