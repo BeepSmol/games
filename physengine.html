@@ -80,13 +80,14 @@
             <p class="text-sm text-gray-200 font-semibold" id="hud-desc">LMB: Grab | Scroll: Distance | RMB: Freeze | E: Unfreeze</p>
             <div class="mt-3 flex justify-end gap-2 text-xs font-bold text-gray-400">
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">1: Physgun</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">2: Portal Gun</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">3: Anchor</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">4: Connector</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">5: Boom</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">2: Scale</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-pink-400">3: Material</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">4: Anchor</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">5: Connector</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-600">6: Delete</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">7: Laser</span>
-                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-pink-400">8: Material</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">7: Portal</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">8: Laser</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">9: Boom</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-purple-400">G: Slo-Mo</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-yellow-400">T: Thrusters</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">Q/Esc: Menu</span>
@@ -246,7 +247,7 @@
                     <button class="bg-gray-300 text-black px-1 border border-gray-100 border-b-gray-600 border-r-gray-600 text-xs cursor-pointer font-bold leading-none flex items-center" onclick="document.getElementById('material-editor').classList.add('hidden')">&times;</button>
                 </div>
                 <div class="p-4 flex flex-col gap-3">
-                    <p class="text-sm">Equip the Material Gun (8) to paint objects.</p>
+                    <p class="text-sm">Equip the Material Gun (3) to paint objects.</p>
                     <div class="flex gap-2 items-center">
                         <label class="font-bold text-sm">Gun Color:</label>
                         <input type="color" id="mat-color" value="#ffffff" class="h-10 w-full cursor-pointer">
@@ -726,7 +727,7 @@ window.WG = {
                 let off = part.offset.map(Number);
                 geo = new THREE.BoxGeometry(sz[0], sz[1], sz[2]);
                 shape = new CANNON.Box(new CANNON.Vec3(sz[0]/2, sz[1]/2, sz[2]/2));
-                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(off[0], off[1], off[2]);
                 mesh.castShadow = true; mesh.receiveShadow = true;
@@ -737,7 +738,7 @@ window.WG = {
                 let off = part.offset.map(Number);
                 geo = new THREE.SphereGeometry(sz[0]/2, 16, 16);
                 shape = new CANNON.Sphere(sz[0]/2);
-                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(off[0], off[1], off[2]);
                 mesh.castShadow = true; mesh.receiveShadow = true;
@@ -748,7 +749,7 @@ window.WG = {
                 geo.setAttribute('position', new THREE.Float32BufferAttribute(part.vertices, 3));
                 if(part.faces && part.faces.length > 0) geo.setIndex(part.faces);
                 geo.computeVertexNormals();
-                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7, side: THREE.DoubleSide });
+                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7, side: THREE.DoubleSide });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.castShadow = true; mesh.receiveShadow = true;
                 group.add(mesh);
@@ -760,6 +761,24 @@ window.WG = {
         });
 
         if(rotation) body.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
+
+        if (opts.scale) {
+             const s = opts.scale;
+             group.scale.set(s, s, s);
+             for(let i=0; i<body.shapes.length; i++){
+                const shape = body.shapes[i];
+                body.shapeOffsets[i].scale(s, body.shapeOffsets[i]);
+                if(shape.type === CANNON.Shape.types.BOX){
+                    shape.halfExtents.scale(s, shape.halfExtents);
+                    shape.updateConvexPolyhedronRepresentation();
+                } else if(shape.type === CANNON.Shape.types.SPHERE){
+                    shape.radius *= s;
+                }
+                shape.updateBoundingSphereRadius();
+             }
+             body.updateMassProperties();
+             body.updateBoundingRadius();
+        }
 
         this.scene.add(group);
         this.world.addBody(body);
@@ -982,13 +1001,14 @@ WG.Player = {
             }
             if(WG.mode === 'sandbox') {
                 if(e.code === 'Digit1') WG.Tools.equip('physgun');
-                if(e.code === 'Digit2') WG.Tools.equip('portal');
-                if(e.code === 'Digit3') WG.Tools.equip('constraint');
-                if(e.code === 'Digit4') WG.Tools.equip('connector');
-                if(e.code === 'Digit5') WG.Tools.equip('explosion');
+                if(e.code === 'Digit2') WG.Tools.equip('scale');
+                if(e.code === 'Digit3') WG.Tools.equip('material');
+                if(e.code === 'Digit4') WG.Tools.equip('constraint');
+                if(e.code === 'Digit5') WG.Tools.equip('connector');
                 if(e.code === 'Digit6') WG.Tools.equip('delete');
-                if(e.code === 'Digit7') WG.Tools.equip('laser');
-                if(e.code === 'Digit8') WG.Tools.equip('material');
+                if(e.code === 'Digit7') WG.Tools.equip('portal');
+                if(e.code === 'Digit8') WG.Tools.equip('laser');
+                if(e.code === 'Digit9') WG.Tools.equip('explosion');
                 if(e.code === 'KeyG') {
                     WG.timeScale = WG.timeScale === 1 ? 0.2 : 1;
                     WG.Mod.API.print(WG.timeScale === 1 ? "Time: Normal" : "Time: Slow Motion", '#a78bfa');
@@ -1091,6 +1111,7 @@ WG.Tools = {
             if(this.active === 'delete') this.deleteDown(e);
             if(this.active === 'laser') this.laserFire(e);
             if(this.active === 'material') this.matFire(e);
+            if(this.active === 'scale') this.scaleFire(e);
         });
         document.addEventListener('mouseup', (e) => {
             if(this.active === 'physgun' && e.button === 0) this.pgUp();
@@ -1119,9 +1140,14 @@ WG.Tools = {
         if(tool === 'physgun') {
             hTool.innerText = "PHYSGUN"; hTool.className = "text-4xl font-extrabold italic text-blue-400 tracking-wider";
             hDesc.innerText = "LMB: Grab | Scroll: Distance | RMB: Freeze | E: Unfreeze";
-        } else if (tool === 'portal') {
-            hTool.innerText = "PORTALGUN"; hTool.className = "text-4xl font-extrabold italic text-orange-500 tracking-wider";
-            hDesc.innerText = "LMB: Blue Portal | RMB: Orange Portal";
+        } else if (tool === 'scale') {
+            hTool.innerText = "SCALE TOOL"; hTool.className = "text-4xl font-extrabold italic text-purple-400 tracking-wider";
+            hDesc.innerText = "LMB: Grow | RMB: Shrink";
+            this.cNodeA = null;
+        } else if (tool === 'material') {
+            hTool.innerText = "MATERIAL GUN"; hTool.className = "text-4xl font-extrabold italic text-pink-500 tracking-wider";
+            hDesc.innerText = "LMB: Paint | RMB: Sample Color";
+            this.cNodeA = null;
         } else if (tool === 'constraint') {
             hTool.innerText = "ANCHOR"; hTool.className = "text-4xl font-extrabold italic text-yellow-400 tracking-wider";
             hDesc.innerText = "LMB: Toggle Anchor (permanent). RMB: Clear Selection";
@@ -1130,21 +1156,20 @@ WG.Tools = {
             hTool.innerText = "CONNECTOR"; hTool.className = "text-4xl font-extrabold italic text-green-400 tracking-wider";
             hDesc.innerText = "LMB: Click two objects to link them. RMB: Cancel.";
             this.cNodeA = null;
-        } else if (tool === 'explosion') {
-            hTool.innerText = "EXPLOSION"; hTool.className = "text-4xl font-extrabold italic text-red-500 tracking-wider";
-            hDesc.innerText = "LMB: Create explosion at cursor.";
-            this.cNodeA = null;
         } else if (tool === 'delete') {
             hTool.innerText = "DELETE"; hTool.className = "text-4xl font-extrabold italic text-red-600 tracking-wider";
             hDesc.innerText = "LMB: Remove object.";
             this.cNodeA = null;
+        } else if (tool === 'portal') {
+            hTool.innerText = "PORTALGUN"; hTool.className = "text-4xl font-extrabold italic text-orange-500 tracking-wider";
+            hDesc.innerText = "LMB: Blue Portal | RMB: Orange Portal";
         } else if (tool === 'laser') {
             hTool.innerText = "LASER"; hTool.className = "text-4xl font-extrabold italic text-red-500 tracking-wider";
             hDesc.innerText = "LMB: Shoot to push objects";
             this.cNodeA = null;
-        } else if (tool === 'material') {
-            hTool.innerText = "MATERIAL GUN"; hTool.className = "text-4xl font-extrabold italic text-pink-500 tracking-wider";
-            hDesc.innerText = "LMB: Paint | RMB: Sample Color";
+        } else if (tool === 'explosion') {
+            hTool.innerText = "EXPLOSION"; hTool.className = "text-4xl font-extrabold italic text-red-500 tracking-wider";
+            hDesc.innerText = "LMB: Create explosion at cursor.";
             this.cNodeA = null;
         } else if (tool === 'raygun') {
             hTool.innerText = "RAY GUN"; hTool.className = "text-4xl font-extrabold italic text-pink-400 tracking-wider";
@@ -1412,6 +1437,47 @@ WG.Tools = {
             WG.Mod.API.print("Sampled: " + hex, hex);
             WG.System.Sound.playTone(800, 'square', 0.1, 0.05);
         }
+    },
+
+    // Scale Tool
+    scaleFire: function(e) {
+        const hits = this.raycastObjects();
+        if(hits.length === 0) return;
+        const hit = hits[0];
+        const obj = WG.objects.find(o => o.mesh === hit.object || (o.mesh.type === 'Group' && o.mesh.children.includes(hit.object)));
+        if(!obj) return;
+
+        const factor = (e.button === 2) ? 0.9 : 1.1; // Right click shrink, Left click grow
+        
+        // Visual Scale
+        obj.mesh.scale.multiplyScalar(factor);
+        
+        // Physics Scale
+        if(obj.body) {
+            const body = obj.body;
+            for(let i=0; i<body.shapes.length; i++){
+                const shape = body.shapes[i];
+                body.shapeOffsets[i].scale(factor, body.shapeOffsets[i]);
+                
+                if(shape.type === CANNON.Shape.types.BOX){
+                    shape.halfExtents.scale(factor, shape.halfExtents);
+                    shape.updateConvexPolyhedronRepresentation();
+                } else if(shape.type === CANNON.Shape.types.SPHERE){
+                    shape.radius *= factor;
+                } else if(shape.type === CANNON.Shape.types.CONVEXPOLYHEDRON || shape.type === CANNON.Shape.types.CYLINDER){
+                    for(let j=0; j<shape.vertices.length; j++) shape.vertices[j].scale(factor, shape.vertices[j]);
+                }
+                shape.updateBoundingSphereRadius();
+            }
+            body.updateMassProperties();
+            body.updateBoundingRadius();
+            body.aabbNeedsUpdate = true;
+            body.wakeUp();
+        }
+        if(obj.opts && obj.opts.size) obj.opts.size = obj.opts.size.map(s => s * factor);
+        else if(obj.opts) obj.opts.scale = (obj.opts.scale || 1) * factor;
+        
+        WG.System.Sound.playTone(e.button===2 ? 300 : 500, 'sine', 0.1, 0.1);
     },
 
     update: function() {
@@ -2802,17 +2868,7 @@ WG.Data = {
     },
 
     serialize: function() {
-        const state = { 
-            objects: [], 
-            constraints: [], 
-            scripts: WG.Mod.savedScripts, 
-            gravity: WG.gravity, 
-            background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, 
-            fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, 
-            models: WG.customModels,
-            timeScale: WG.timeScale,
-            currency: WG.Mod.currency
-        };
+        const state = { objects: [], constraints: [], scripts: WG.Mod.savedScripts, gravity: WG.gravity, background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, models: WG.customModels };
         if(WG.Portals && WG.Portals.blue) state.portalBlue = { pos: [WG.Portals.blue.pos.x, WG.Portals.blue.pos.y, WG.Portals.blue.pos.z], quat: [WG.Portals.blue.quat.x, WG.Portals.blue.quat.y, WG.Portals.blue.quat.z, WG.Portals.blue.quat.w], normal: [WG.Portals.blue.normal.x, WG.Portals.blue.normal.y, WG.Portals.blue.normal.z] };
         if(WG.Portals && WG.Portals.orange) state.portalOrange = { pos: [WG.Portals.orange.pos.x, WG.Portals.orange.pos.y, WG.Portals.orange.pos.z], quat: [WG.Portals.orange.quat.x, WG.Portals.orange.quat.y, WG.Portals.orange.quat.z, WG.Portals.orange.quat.w], normal: [WG.Portals.orange.normal.x, WG.Portals.orange.normal.y, WG.Portals.orange.normal.z] };
         WG.objects.forEach(obj => {
@@ -2843,21 +2899,6 @@ WG.Data = {
 
     deserialize: function(state) {
         WG.buildBlank(); 
-        
-        // Restore World Settings
-        if (state.gravity !== undefined) {
-            WG.world.gravity.set(0, state.gravity, 0);
-            WG.gravity = state.gravity;
-        }
-        if (state.background !== undefined) {
-            const col = new THREE.Color(state.background);
-            WG.scene.background = col;
-            WG.scene.fog.color = col;
-        }
-        if (state.fogDensity !== undefined && WG.scene.fog) WG.scene.fog.density = state.fogDensity;
-        if (state.timeScale !== undefined) WG.timeScale = state.timeScale;
-        if (state.currency !== undefined) WG.Mod.API.setCurrency(state.currency);
-
         // restore custom models if present
         if(state.models) WG.customModels = Object.assign({}, WG.customModels, state.models);
         state.objects.forEach(data => {
