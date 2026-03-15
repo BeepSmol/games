@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="physics.ico">
     <title>Physics Engine</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -87,6 +86,7 @@
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">5: Boom</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-600">6: Delete</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-red-400">7: Laser</span>
+                <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-pink-400">8: Material</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-purple-400">G: Slo-Mo</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600 text-yellow-400">T: Thrusters</span>
                 <span class="bg-gray-800 bg-opacity-70 px-2 py-1 border border-gray-600">Q/Esc: Menu</span>
@@ -242,17 +242,16 @@
         <div id="material-editor" class="interactive hidden absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
             <div class="retro-panel w-[500px] h-[220px] flex flex-col shadow-2xl">
                 <div class="retro-title flex justify-between">
-                    <span>Material Editor</span>
+                    <span>Material Gun Settings</span>
                     <button class="bg-gray-300 text-black px-1 border border-gray-100 border-b-gray-600 border-r-gray-600 text-xs cursor-pointer font-bold leading-none flex items-center" onclick="document.getElementById('material-editor').classList.add('hidden')">&times;</button>
                 </div>
                 <div class="p-4 flex flex-col gap-3">
-                    <p class="text-sm">Click an object in the scene to select it, then choose a color.</p>
+                    <p class="text-sm">Equip the Material Gun (8) to paint objects.</p>
                     <div class="flex gap-2 items-center">
-                        <input type="color" id="mat-color" value="#ffffff" class="h-10 w-12">
-                        <button class="retro-button px-4 py-2" onclick="WG.UI.applyMaterialToSelection()">Apply Color</button>
-                        <button class="retro-button px-4 py-2" onclick="WG.UI.selectMaterialFromPointer()">Select From Pointer</button>
+                        <label class="font-bold text-sm">Gun Color:</label>
+                        <input type="color" id="mat-color" value="#ffffff" class="h-10 w-full cursor-pointer">
                     </div>
-                    <div class="text-xs text-gray-600">Selected object id: <span id="mat-selected">none</span></div>
+                    <div class="text-xs text-gray-600">LMB: Paint | RMB: Sample Color</div>
                 </div>
             </div>
         </div>
@@ -611,40 +610,61 @@ window.WG = {
         let mass = (opts.isStatic || opts.anchored) ? 0 : (opts.mass !== undefined ? opts.mass : 5);
         let matType = opts.bouncy ? this.materials.bouncy : this.materials.standard;
 
-        let geo, shape;
+        let geo;
+        const body = new CANNON.Body({
+            mass: mass,
+            material: matType,
+            position: new CANNON.Vec3(x, y, z)
+        });
+        body.allowSleep = true;
+        body.sleepSpeedLimit = 0.1;
+        body.sleepTimeLimit = 1;
+
         if(type === 'box') {
             geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
-            shape = new CANNON.Box(new CANNON.Vec3(size[0]/2, size[1]/2, size[2]/2));
+            body.addShape(new CANNON.Box(new CANNON.Vec3(size[0]/2, size[1]/2, size[2]/2)));
         } else if (type === 'sphere') {
             geo = new THREE.SphereGeometry(size[0]/2, 32, 32);
-            shape = new CANNON.Sphere(size[0]/2);
+            body.addShape(new CANNON.Sphere(size[0]/2));
         } else if (type === 'cylinder') {
             geo = new THREE.CylinderGeometry(size[0]/2, size[0]/2, size[1], 32);
-            shape = new CANNON.Cylinder(size[0]/2, size[0]/2, size[1], 16);
+            const shape = new CANNON.Cylinder(size[0]/2, size[0]/2, size[1], 16);
+            const q = new CANNON.Quaternion();
+            q.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
+            body.addShape(shape, new CANNON.Vec3(0,0,0), q);
+        } else if (type === 'cone') {
+            geo = new THREE.CylinderGeometry(0, size[0]/2, size[1], 32);
+            const r = size[0]/2;
+            const h = size[1];
+            const segs = 16;
+            const verts = [new CANNON.Vec3(0, h/2, 0)];
+            const faces = [];
+            for(let i=0; i<segs; i++) {
+                const theta = (i/segs) * Math.PI * 2;
+                verts.push(new CANNON.Vec3(r*Math.sin(theta), -h/2, r*Math.cos(theta)));
+                faces.push([0, (i+1)%segs + 1, i+1]);
+            }
+            const base = [];
+            for(let i=0; i<segs; i++) base.push(i+1);
+            faces.push(base);
+            const shape = new CANNON.ConvexPolyhedron(verts, faces);
+            body.addShape(shape);
+        } else if (type === 'torus') {
+            const r = size[0] ? size[0]/2 : 1;
+            const t = size[1] ? size[1]/6 : 0.2;
+            geo = new THREE.TorusGeometry(r, t, 16, 32);
+            const num = 16;
+            const shape = new CANNON.Sphere(t);
+            for(let i=0; i<num; i++) {
+                const ang = (i/num) * Math.PI * 2;
+                body.addShape(shape, new CANNON.Vec3(r*Math.cos(ang), r*Math.sin(ang), 0));
+            }
         }
 
         const mat = new THREE.MeshStandardMaterial({ color: color, roughness: opts.bouncy? 0.1 : 0.8 });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.castShadow = true; mesh.receiveShadow = true;
         this.scene.add(mesh);
-
-        const body = new CANNON.Body({
-            mass: mass,
-            material: matType,
-            position: new CANNON.Vec3(x, y, z)
-        });
-        // Enable sleeping to reduce CPU for idle objects
-        body.allowSleep = true;
-        body.sleepSpeedLimit = 0.1;
-        body.sleepTimeLimit = 1;
-        
-        if(type === 'cylinder') {
-            let q = new CANNON.Quaternion();
-            q.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
-            body.addShape(shape, new CANNON.Vec3(0,0,0), q);
-        } else {
-            body.addShape(shape);
-        }
 
         if(opts.rotation) body.quaternion.set(opts.rotation[0], opts.rotation[1], opts.rotation[2], opts.rotation[3]);
 
@@ -706,7 +726,7 @@ window.WG = {
                 let off = part.offset.map(Number);
                 geo = new THREE.BoxGeometry(sz[0], sz[1], sz[2]);
                 shape = new CANNON.Box(new CANNON.Vec3(sz[0]/2, sz[1]/2, sz[2]/2));
-                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(off[0], off[1], off[2]);
                 mesh.castShadow = true; mesh.receiveShadow = true;
@@ -717,7 +737,7 @@ window.WG = {
                 let off = part.offset.map(Number);
                 geo = new THREE.SphereGeometry(sz[0]/2, 16, 16);
                 shape = new CANNON.Sphere(sz[0]/2);
-                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7 });
+                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(off[0], off[1], off[2]);
                 mesh.castShadow = true; mesh.receiveShadow = true;
@@ -728,7 +748,7 @@ window.WG = {
                 geo.setAttribute('position', new THREE.Float32BufferAttribute(part.vertices, 3));
                 if(part.faces && part.faces.length > 0) geo.setIndex(part.faces);
                 geo.computeVertexNormals();
-                const mat = new THREE.MeshStandardMaterial({ color: part.color, roughness: def.bouncy ? 0.2 : 0.7, side: THREE.DoubleSide });
+                const mat = new THREE.MeshStandardMaterial({ color: opts.color || part.color, roughness: def.bouncy ? 0.2 : 0.7, side: THREE.DoubleSide });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.castShadow = true; mesh.receiveShadow = true;
                 group.add(mesh);
@@ -968,6 +988,7 @@ WG.Player = {
                 if(e.code === 'Digit5') WG.Tools.equip('explosion');
                 if(e.code === 'Digit6') WG.Tools.equip('delete');
                 if(e.code === 'Digit7') WG.Tools.equip('laser');
+                if(e.code === 'Digit8') WG.Tools.equip('material');
                 if(e.code === 'KeyG') {
                     WG.timeScale = WG.timeScale === 1 ? 0.2 : 1;
                     WG.Mod.API.print(WG.timeScale === 1 ? "Time: Normal" : "Time: Slow Motion", '#a78bfa');
@@ -1069,6 +1090,7 @@ WG.Tools = {
             if(this.active === 'explosion') this.explodeDown(e);
             if(this.active === 'delete') this.deleteDown(e);
             if(this.active === 'laser') this.laserFire(e);
+            if(this.active === 'material') this.matFire(e);
         });
         document.addEventListener('mouseup', (e) => {
             if(this.active === 'physgun' && e.button === 0) this.pgUp();
@@ -1119,6 +1141,10 @@ WG.Tools = {
         } else if (tool === 'laser') {
             hTool.innerText = "LASER"; hTool.className = "text-4xl font-extrabold italic text-red-500 tracking-wider";
             hDesc.innerText = "LMB: Shoot to push objects";
+            this.cNodeA = null;
+        } else if (tool === 'material') {
+            hTool.innerText = "MATERIAL GUN"; hTool.className = "text-4xl font-extrabold italic text-pink-500 tracking-wider";
+            hDesc.innerText = "LMB: Paint | RMB: Sample Color";
             this.cNodeA = null;
         } else if (tool === 'raygun') {
             hTool.innerText = "RAY GUN"; hTool.className = "text-4xl font-extrabold italic text-pink-400 tracking-wider";
@@ -1354,6 +1380,38 @@ WG.Tools = {
             obj.body.wakeUp();
         }
         WG.System.Sound.playSine(880, 0.1, 0.1);
+    },
+
+    // Material Gun
+    matFire: function(e) {
+        const hits = this.raycastObjects();
+        if(hits.length === 0) return;
+        const hit = hits[0];
+        const obj = WG.objects.find(o => o.mesh === hit.object || (o.mesh.type === 'Group' && o.mesh.children.includes(hit.object)));
+        
+        if(e.button === 0) { // Paint
+            const color = document.getElementById('mat-color').value;
+            if(obj) {
+                const apply = (m) => { 
+                    if(m.material) { 
+                        m.material.color = new THREE.Color(color); 
+                    } 
+                };
+                if(obj.mesh.type === 'Group') obj.mesh.traverse(m => { if(m.isMesh) apply(m); });
+                else if(obj.mesh.isMesh) apply(obj.mesh);
+                
+                if(obj.opts) obj.opts.color = color;
+                
+                WG.System.Sound.playTone(600, 'sine', 0.1, 0.05);
+            }
+        } else if (e.button === 2) { // Sample
+            let col = new THREE.Color(0xffffff);
+            if(hit.object.material && hit.object.material.color) col = hit.object.material.color;
+            const hex = '#' + col.getHexString();
+            document.getElementById('mat-color').value = hex;
+            WG.Mod.API.print("Sampled: " + hex, hex);
+            WG.System.Sound.playTone(800, 'square', 0.1, 0.05);
+        }
     },
 
     update: function() {
@@ -1677,6 +1735,14 @@ WG.UI = {
                     <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawn('cylinder')">
                         <div class="w-8 h-10 bg-green-500 mb-1 border border-black rounded-sm"></div>
                         <span class="text-[10px]">Cylinder</span>
+                    </button>
+                    <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawn('cone')">
+                        <div class="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-b-[30px] border-b-yellow-500 mb-1"></div>
+                        <span class="text-[10px]">Cone</span>
+                    </button>
+                    <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawn('torus')">
+                        <div class="w-8 h-8 border-4 border-purple-500 rounded-full mb-1"></div>
+                        <span class="text-[10px]">Torus</span>
                     </button>
                     <button class="retro-button p-2 flex flex-col items-center" onclick="WG.UI.spawnSpecial('speedpad')">
                         <span class="text-2xl mb-1">⏩</span>
@@ -2016,7 +2082,7 @@ WG.UI = {
 
     // Material Editor helpers
     matSelectionId: null,
-    openMaterialEditor: function() { document.getElementById('material-editor').classList.remove('hidden'); document.getElementById('mat-selected').innerText = this.matSelectionId || 'none'; },
+    openMaterialEditor: function() { document.getElementById('material-editor').classList.remove('hidden'); },
     applyMaterialToSelection: function() {
         const id = this.matSelectionId;
         const color = document.getElementById('mat-color').value;
@@ -2736,7 +2802,17 @@ WG.Data = {
     },
 
     serialize: function() {
-        const state = { objects: [], constraints: [], scripts: WG.Mod.savedScripts, gravity: WG.gravity, background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, models: WG.customModels };
+        const state = { 
+            objects: [], 
+            constraints: [], 
+            scripts: WG.Mod.savedScripts, 
+            gravity: WG.gravity, 
+            background: WG.scene.background ? WG.scene.background.getHex() : 0x7ec0ee, 
+            fogDensity: (WG.scene.fog && WG.scene.fog.density) ? WG.scene.fog.density : null, 
+            models: WG.customModels,
+            timeScale: WG.timeScale,
+            currency: WG.Mod.currency
+        };
         if(WG.Portals && WG.Portals.blue) state.portalBlue = { pos: [WG.Portals.blue.pos.x, WG.Portals.blue.pos.y, WG.Portals.blue.pos.z], quat: [WG.Portals.blue.quat.x, WG.Portals.blue.quat.y, WG.Portals.blue.quat.z, WG.Portals.blue.quat.w], normal: [WG.Portals.blue.normal.x, WG.Portals.blue.normal.y, WG.Portals.blue.normal.z] };
         if(WG.Portals && WG.Portals.orange) state.portalOrange = { pos: [WG.Portals.orange.pos.x, WG.Portals.orange.pos.y, WG.Portals.orange.pos.z], quat: [WG.Portals.orange.quat.x, WG.Portals.orange.quat.y, WG.Portals.orange.quat.z, WG.Portals.orange.quat.w], normal: [WG.Portals.orange.normal.x, WG.Portals.orange.normal.y, WG.Portals.orange.normal.z] };
         WG.objects.forEach(obj => {
@@ -2767,6 +2843,21 @@ WG.Data = {
 
     deserialize: function(state) {
         WG.buildBlank(); 
+        
+        // Restore World Settings
+        if (state.gravity !== undefined) {
+            WG.world.gravity.set(0, state.gravity, 0);
+            WG.gravity = state.gravity;
+        }
+        if (state.background !== undefined) {
+            const col = new THREE.Color(state.background);
+            WG.scene.background = col;
+            WG.scene.fog.color = col;
+        }
+        if (state.fogDensity !== undefined && WG.scene.fog) WG.scene.fog.density = state.fogDensity;
+        if (state.timeScale !== undefined) WG.timeScale = state.timeScale;
+        if (state.currency !== undefined) WG.Mod.API.setCurrency(state.currency);
+
         // restore custom models if present
         if(state.models) WG.customModels = Object.assign({}, WG.customModels, state.models);
         state.objects.forEach(data => {
@@ -2883,4 +2974,3 @@ WG.Data = {
 </script>
 </body>
 </html>
-
