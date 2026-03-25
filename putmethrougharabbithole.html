@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE RABBIT HOLE GENERATOR</title>
+    <!-- Using Tailwind for layout, but keeping it raw and simple -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col items-center justify-center p-6 font-mono selection:bg-yellow-200">
+
+    <div class="max-w-2xl w-full flex flex-col items-center gap-8">
+        
+        <!-- HEADER -->
+        <div class="text-center space-y-4 mt-8">
+            <h1 class="text-4xl md:text-5xl font-bold tracking-tight">
+                RABBIT HOLE GENERATOR
+            </h1>
+            <p class="text-lg text-gray-600">Click the button. Lose your afternoon.</p>
+        </div>
+
+        <!-- FILTER -->
+        <div class="w-full max-w-xs">
+            <select id="tagFilter" class="w-full p-3 border-4 border-black bg-white font-bold text-lg uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:bg-yellow-100 cursor-pointer">
+                <option value="ALL">SURPRISE ME (ALL)</option>
+            </select>
+        </div>
+
+        <!-- GENERATE BUTTON -->
+        <button id="generateBtn" class="w-full md:w-auto px-12 py-6 border-4 border-black bg-white hover:bg-yellow-200 active:bg-yellow-400 font-bold text-2xl uppercase shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            DIG DOWN
+        </button>
+
+        <!-- OUTPUT CONTAINER (Hidden by default) -->
+        <div id="outputContainer" class="hidden w-full border-4 border-black bg-white p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mt-4">
+            
+            <h2 id="holeTitle" class="text-3xl font-bold mb-4 uppercase border-b-4 border-black pb-2"></h2>
+            
+            <div id="holeTags" class="flex flex-wrap gap-2 mb-6 text-sm font-bold">
+                <!-- Tags injected by JS -->
+            </div>
+
+            <p id="holeDesc" class="text-lg leading-relaxed mb-8"></p>
+            
+            <a id="holeLink" href="#" target="_blank" class="block w-full text-center border-4 border-black bg-black text-white px-4 py-3 text-xl font-bold hover:bg-white hover:text-black transition-colors">
+                ENTER RABBIT HOLE
+            </a>
+            <button id="shareBtn" class="block w-full text-center mt-4 border-4 border-black bg-white text-black px-4 py-3 text-xl font-bold hover:bg-yellow-300 transition-colors">
+                SHARE FINDING
+            </button>
+            <button id="saveBtn" class="block w-full text-center mt-4 border-4 border-black bg-white text-black px-4 py-3 text-xl font-bold hover:bg-green-300 transition-colors">
+                SAVE FOR LATER
+            </button>
+
+            <div id="relatedContainer" class="hidden mt-6 pt-6 border-t-4 border-dashed border-gray-200">
+                <h4 class="text-sm font-bold uppercase text-gray-500 mb-2">You might also like:</h4>
+                <div id="relatedContent" class="flex justify-between items-center">
+                    <span id="relatedTitle" class="font-bold text-lg"></span>
+                    <button id="relatedBtn" class="text-sm border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors font-bold">GO THERE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST CONTAINER -->
+        <div id="toastContainer" class="fixed top-20 right-5 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+        <!-- MENU BUTTON -->
+        <button onclick="toggleMenu()" class="fixed top-5 right-5 z-50 bg-white text-black border-4 border-black px-6 py-2 font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-yellow-200 transition-all hover:translate-y-1 hover:shadow-none">
+            HISTORY
+        </button>
+
+        <!-- MENU MODAL -->
+        <div id="menuModal" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-end transition-opacity duration-300" onclick="if(event.target === this) toggleMenu()">
+            <div class="w-full max-w-md h-full bg-white border-l-4 border-black flex flex-col shadow-[-10px_0px_0px_0px_rgba(0,0,0,0.5)] transform transition-transform duration-300 translate-x-full" id="menuContent">
+                <div class="flex justify-between items-center mb-8 border-b-4 border-black pb-4 p-6 shrink-0">
+                    <h2 class="text-3xl font-bold uppercase tracking-tighter">HISTORY</h2>
+                    <div class="flex items-center gap-4">
+                        <button onclick="exportData()" class="text-xs font-bold hover:text-blue-600 uppercase" title="Export as TXT">EXPORT</button>
+                        <button onclick="toggleMenu()" class="text-2xl font-bold hover:text-red-600 transition-colors">✕</button>
+                    </div>
+                </div>
+
+                <div id="savedContainer" class="mb-8 w-full"><h3 class="text-xl font-bold uppercase mb-4 border-b-2 border-black pb-1 text-green-700">Saved For Later</h3><ul id="savedList" class="space-y-3 text-sm font-mono"></ul></div>
+
+                <div id="historyContainer" class="w-full">
+                    <div class="flex justify-between items-center mb-4 border-b-2 border-black pb-1">
+                        <h3 class="text-xl font-bold uppercase">History</h3>
+                        <button onclick="clearHistory()" class="text-xs text-red-500 font-bold hover:text-red-700 uppercase">CLEAR</button>
+                    </div>
+                    <ul id="historyList" class="space-y-3 text-sm font-mono"></ul>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center flex flex-wrap justify-center gap-4">
+            <a href="https://forms.gle/K68Jmuo9oeV48sBJ9" target="_blank" class="inline-block px-8 py-3 border-4 border-black bg-white hover:bg-yellow-200 active:bg-yellow-400 font-bold text-sm uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">Submit a Suggestion</a>
+            <a href="https://forms.gle/W9CN7cxt5NeiERvY8" target="_blank" class="inline-block px-8 py-3 border-4 border-black bg-white hover:bg-red-200 active:bg-red-400 font-bold text-sm uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">Report a Broken Link</a>
+        </div>
+
+    </div>
+
+    <script>
+        // THE RABBIT HOLE DATABASE
+        const rabbitHoles = [
+            {
+                title: "The Voynich Manuscript",
+                tags: ["CRYPTOGRAPHY", "HISTORY", "UNSOLVED"],
+                desc: "An illustrated codex hand-written in an unknown writing system from the 15th century. It features bizarre plants, astronomical charts, and naked people bathing in strange tubes. Nobody knows what it says. Cryptographers have been losing their minds over it for decades.",
+                link: "https://en.wikipedia.org/wiki/Voynich_manuscript"
+            },
+            {
+                title: "Number Stations",
+                tags: ["ESPIONAGE", "AUDIO", "CREEPY"],
+                desc: "Shortwave radio stations of uncertain origin. They generally broadcast artificially generated voices reading streams of numbers, words, letters, or phonetic alphabet sounds. They are widely assumed to be used to communicate with deployed spies. You can listen to them online.",
+                link: "https://en.wikipedia.org/wiki/Numbers_station"
+            },
+            {
+                title: "The Lost Media Wiki",
+                tags: ["INTERNET HISTORY", "ARCHIVE", "NOSTALGIA"],
+                desc: "An entire community dedicated to hunting down TV shows, movies, games, and internet phenomena that have completely disappeared from existence. From cancelled weird 90s cartoons to lost localized versions of video games.",
+                link: "https://lostmediawiki.com/Main_Page"
+            },
+            {
+                title: "Wikipedia's 'Unusual Articles'",
+                tags: ["META", "WEIRD", "WIKIPEDIA"],
+                desc: "A master list curated by Wikipedia editors of the weirdest, most bizarre, and most oddly specific articles on the site. From 'Toledo War' to 'Dancing Plague of 1518' to 'List of people who died on the toilet'.",
+                link: "https://en.wikipedia.org/wiki/Wikipedia:Unusual_articles"
+            },
+            {
+                title: "Polybius (Urban Legend)",
+                tags: ["GAMING", "MYTH", "ARCADE"],
+                desc: "An urban legend about a fictitious 1981 arcade game that supposedly produced intense psychoactive and addictive effects in players. The legend states that a few weeks after its release, it disappeared entirely, and the cabinets were periodically visited by men in black.",
+                link: "https://en.wikipedia.org/wiki/Polybius_(urban_legend)"
+            },
+            {
+                title: "The Max Headroom Incident",
+                tags: ["TELEVISION", "HACKING", "1980s"],
+                desc: "In 1987, someone hijacked the television broadcast signals of two stations in Chicago. The hijacker, wearing a Max Headroom mask, rambled incoherently and hit themselves with a flyswatter. The culprit was never caught.",
+                link: "https://en.wikipedia.org/wiki/Max_Headroom_signal_hijacking"
+            },
+            {
+                title: "Tarrare, The Man Who Ate Everything",
+                tags: ["HISTORY", "MEDICAL", "BIOLOGY"],
+                desc: "A French showman and soldier from the 1700s, noted for his unusual eating habits and bottomless appetite. He could eat a meal intended for 15 people, swallow live cats, and was once suspected of eating a toddler in a hospital.",
+                link: "https://en.wikipedia.org/wiki/Tarrare"
+            },
+            {
+                title: "The Toynbee Tiles",
+                tags: ["STREET ART", "MYSTERY", "CONSPIRACY"],
+                desc: "Messages of unknown origin found embedded in the asphalt of streets in dozens of major cities worldwide. They all carry a similar, bizarre message about reviving the dead on the planet Jupiter.",
+                link: "https://en.wikipedia.org/wiki/Toynbee_tiles"
+            },
+            {
+                title: "Cicada 3301",
+                tags: ["PUZZLE", "INTERNET", "CRYPTOGRAPHY"],
+                desc: "A name given to an enigmatic organization that posted three sets of highly complex puzzles online between 2012 and 2014. The stated intent was to recruit 'highly intelligent individuals'. The final puzzle remains unsolved.",
+                link: "https://en.wikipedia.org/wiki/Cicada_3301"
+            },
+            {
+                title: "The Emu War",
+                tags: ["HISTORY", "ANIMALS", "ABSURD"],
+                desc: "In 1932, the Australian military was deployed to combat a massive population of emus that were destroying crops. The military, armed with machine guns, ultimately lost the 'war' to the giant, flightless birds.",
+                link: "https://en.wikipedia.org/wiki/Emu_War"
+            },
+            {
+                title: "Deep Sea Gigantism",
+                tags: ["NATURE", "OCEAN", "BIOLOGY"],
+                desc: "The tendency for species of invertebrates and other deep-sea dwelling animals to be substantially larger than their shallower-water relatives. Think giant squids, massive isopods, and terrifyingly large crabs.",
+                link: "https://en.wikipedia.org/wiki/Deep-sea_gigantism"
+            },
+            {
+                title: "The Mandela Effect",
+                tags: ["PSYCHOLOGY", "POP CULTURE", "MEMORY"],
+                desc: "A phenomenon where a large group of people collectively misremember a fact or event. Named after the false memory that Nelson Mandela died in prison in the 1980s. See also: the Berenstain Bears spelling.",
+                link: "https://en.wikipedia.org/wiki/False_memory#Mandela_Effect"
+            },
+            {
+                title: "The Library of Babel",
+                tags: ["PHILOSOPHY", "LITERATURE", "INFINITE"],
+                desc: "Based on a short story by Jorge Luis Borges, this website simulates a library that contains every possible book of 410 pages. Every thought you've ever had, and every thought you ever will have, is already written in one of its books.",
+                link: "https://libraryofbabel.info/"
+            },
+            {
+                title: "The SCP Foundation",
+                tags: ["FICTION", "HORROR", "COLLABORATIVE"],
+                desc: "A collaborative writing project describing the exploits of the SCP Foundation, a fictional organization responsible for containing individuals, entities, locations, and objects that violate natural law (Special Containment Procedures).",
+                link: "https://scp-wiki.wikidot.com/"
+            },
+            {
+                title: "TV Tropes",
+                tags: ["MEDIA", "WIKI", "ADDICTIVE"],
+                desc: "A wiki that catalogs the devices, conventions, and archetypes that a writer can reasonably generally be expected to use in all types of fiction. Warning: Known to cause time dilation where hours pass in minutes.",
+                link: "https://tvtropes.org/"
+            },
+            {
+                title: "The Bloop",
+                tags: ["MYSTERY", "OCEAN", "AUDIO"],
+                desc: "An ultra-low-frequency and extremely powerful underwater sound detected by the U.S. National Oceanic and Atmospheric Administration (NOAA) in 1997. The source of the sound was unknown for years, sparking theories of giant sea creatures.",
+                link: "https://en.wikipedia.org/wiki/Bloop"
+            },
+            {
+                title: "Dyatlov Pass Incident",
+                tags: ["UNSOLVED", "HISTORY", "CREEPY"],
+                desc: "The mysterious death of nine ski hikers in the northern Ural Mountains in the Soviet Union in 1959. The experienced trekking group had torn their tents from the inside and fled into the snow inadequately dressed.",
+                link: "https://en.wikipedia.org/wiki/Dyatlov_Pass_incident"
+            },
+            {
+                title: "Codex Seraphinianus",
+                tags: ["ART", "SURREAL", "BOOK"],
+                desc: "An encyclopedia of an imaginary world, written in an imaginary language with surreal illustrations. Published in 1981 by Italian artist Luigi Serafini. It defies translation because the language doesn't actually mean anything.",
+                link: "https://en.wikipedia.org/wiki/Codex_Seraphinianus"
+            },
+            {
+                title: "Timeline of the Far Future",
+                tags: ["SCIENCE", "SPACE", "EXISTENTIAL"],
+                desc: "A Wikipedia article outlining scientific projections for the extremely distant future. From the death of the sun to the decay of protons and the heat death of the universe. Guaranteed to make you feel insignificant.",
+                link: "https://en.wikipedia.org/wiki/Timeline_of_the_far_future"
+            },
+            {
+                title: "TempleOS",
+                tags: ["COMPUTING", "SCHIZOPHRENIA", "RELIGION"],
+                desc: "A biblical-themed lightweight operating system designed to be the Third Temple for speaking to God. Created by lone programmer Terry Davis over the course of a decade while he struggled with severe mental illness.",
+                link: "https://en.wikipedia.org/wiki/TempleOS"
+            },
+            {
+                title: "Lake City Quiet Pills",
+                tags: ["REDDIT", "MYSTERY", "INTERNET"],
+                desc: "An internet mystery revolving around the Reddit user ReligionOfPeace, a image hosting site, and hidden HTML code that supposedly hinted at a mercenary organization or assassination ring. One of the classic rabbit holes.",
+                link: "https://www.reddit.com/r/UnresolvedMysteries/comments/16q05o/lake_city_quiet_pills_explained/"
+            },
+            {
+                title: "The Wow! Signal",
+                tags: ["ALIENS", "SPACE", "SIGNAL"],
+                desc: "A strong narrowband radio signal received in 1977 by the Big Ear radio telescope in the United States. It bore the expected hallmarks of non-terrestrial origin. It lasted 72 seconds and was never detected again.",
+                link: "https://en.wikipedia.org/wiki/Wow!_signal"
+            },
+            {
+                title: "The Great Attractor",
+                tags: ["SPACE", "PHYSICS", "MYSTERY"],
+                desc: "A gravitational anomaly in intergalactic space and the central gravitational point of the Laniakea Supercluster. It reveals the existence of a localized concentration of mass tens of thousands of times more massive than the Milky Way.",
+                link: "https://en.wikipedia.org/wiki/Great_Attractor"
+            },
+            {
+                title: "Who put Bella in the Wych Elm?",
+                tags: ["UNSOLVED", "MURDER", "WWII"],
+                desc: "The discovery of a woman's skeleton in a wych elm tree in England in 1943 during WWII. Graffiti asking 'Who put Bella in the Wych Elm?' began appearing in 1944. The victim's identity remains unknown.",
+                link: "https://en.wikipedia.org/wiki/Who_put_Bella_in_the_Wych_Elm%3F"
+            },
+            {
+                title: "Phantom Time Hypothesis",
+                tags: ["HISTORY", "CONSPIRACY", "TIME"],
+                desc: "A historical conspiracy theory asserting that the Early Middle Ages (614-911 AD) were fabricated and that we are actually living in the 18th century. It claims Charlemagne was made up.",
+                link: "https://en.wikipedia.org/wiki/Phantom_time_hypothesis"
+            }
+        ];
+
+        // --- Sound Effects ---
+        const SFX = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) {
+                    try {
+                        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    } catch(e) {
+                        console.error("Web Audio API not supported.");
+                    }
+                }
+            },
+            play: function(type) {
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                gain.connect(this.ctx.destination);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                osc.connect(gain);
+
+                if (type === 'dig') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
+                } else if (type === 'reveal') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.4);
+                }
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+        };
+
+        // --- History & Saved Logic (LocalStorage) ---
+        const STORAGE_KEY_HISTORY = "rabbithole_history_v2";
+        const STORAGE_KEY_SAVED = "rabbithole_saved_v2";
+        
+        function getHistory() {
+            try {
+                const item = localStorage.getItem(STORAGE_KEY_HISTORY);
+                return item ? JSON.parse(item) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveHistory(hole) {
+            let history = getHistory();
+            // Remove duplicates if any
+            history = history.filter(h => h.title !== hole.title);
+            
+            // Add to front with timestamp
+            const now = new Date();
+            const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+            history.unshift({ title: hole.title, link: hole.link, time: timestamp });
+            
+            // Keep last 10
+            if (history.length > 10) history = history.slice(0, 10);
+            
+            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = getHistory();
+            const container = document.getElementById('historyContainer');
+            const list = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            list.innerHTML = history.map(h => `
+                <li class="flex items-center justify-between group p-1 hover:bg-gray-200 rounded">
+                    <div class="flex-1 min-w-0">
+                        <a href="${h.link}" target="_blank" class="block hover:bg-yellow-200 font-bold uppercase truncate border-b-2 border-transparent hover:border-black transition-colors">
+                            <span class="text-yellow-600 font-bold group-hover:text-black mr-1">>></span>${h.title}
+                        </a>
+                        <div class="text-[10px] text-gray-500 font-mono ml-4">${h.time || ''}</div>
+                    </div>
+                    <button onclick="saveItem(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(h))}')))" class="text-green-600 hover:text-green-800 text-lg p-2 shrink-0" title="Save for Later">★</button>
+                </li>
+            `).join('');
+        }
+
+        window.clearHistory = function() {
+            if(confirm("Clear browsing history?")) {
+                localStorage.removeItem(STORAGE_KEY_HISTORY);
+                renderHistory();
+            }
+        }
+
+        window.exportData = function() {
+            const history = getHistory();
+            const saved = getSaved();
+
+            if (history.length === 0 && saved.length === 0) {
+                showToast("NOTHING TO EXPORT!", "text-red-500 bg-red-100");
+                return;
+            }
+
+            let content = "RABBIT HOLE EXPORT\n";
+            content += "====================\n\n";
+
+            if (saved.length > 0) {
+                content += "SAVED FOR LATER\n";
+                content += "--------------------\n";
+                saved.forEach(h => { content += `${h.title}\n${h.link}\n\n`; });
+            }
+
+            if (history.length > 0) {
+                content += "HISTORY\n";
+                content += "--------------------\n";
+                history.forEach(h => { content += `${h.title} (at ${h.time})\n${h.link}\n\n`; });
+            }
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'rabbit_hole_export.txt';
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+            showToast("EXPORTED TO TXT!", "text-blue-600 bg-blue-100");
+        }
+
+        // --- Saved Logic ---
+        function getSaved() {
+            try {
+                const item = localStorage.getItem(STORAGE_KEY_SAVED);
+                return item ? JSON.parse(item) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveItem(hole) {
+            if (!hole || !hole.title || !hole.link) return false;
+            let saved = getSaved();
+            
+            // Avoid duplicates
+            if (saved.some(h => h.title === hole.title)) {
+                showToast("ALREADY SAVED!", "text-yellow-600 bg-yellow-100");
+                return false;
+            }
+
+            saved.unshift({ title: hole.title, link: hole.link });
+            
+            localStorage.setItem(STORAGE_KEY_SAVED, JSON.stringify(saved));
+            renderSaved();
+            
+            showToast("SAVED FOR LATER!", "text-green-700 bg-green-100");
+            return true;
+        }
+
+        function saveToLater() {
+            if (saveItem(currentHole)) {
+                saveBtn.innerText = "SAVED ✓";
+            }
+        }
+
+        window.removeSaved = function(index) {
+            let saved = getSaved();
+            saved.splice(index, 1);
+            localStorage.setItem(STORAGE_KEY_SAVED, JSON.stringify(saved));
+            renderSaved();
+        }
+
+        function renderSaved() {
+            const saved = getSaved();
+            const container = document.getElementById('savedContainer');
+            const list = document.getElementById('savedList');
+            
+            if (saved.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            list.innerHTML = saved.map((h, i) => `
+                <li class="flex items-center justify-between group bg-white border-2 border-transparent hover:border-black p-2 transition-all shadow-sm">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <span class="text-green-600 font-bold shrink-0">★</span>
+                        <a href="${h.link}" target="_blank" class="font-bold uppercase truncate hover:underline text-black">${h.title}</a>
+                    </div>
+                    <button onclick="removeSaved(${i})" class="text-red-500 font-bold hover:bg-red-500 hover:text-white px-2 py-1 text-xs border border-transparent hover:border-black transition-colors uppercase">Remove</button>
+                </li>
+            `).join('');
+        }
+
+        function displayHole(hole) {
+            currentHole = hole;
+
+            // Populate Data
+            titleEl.innerText = hole.title;
+            descEl.innerText = hole.desc;
+            linkEl.href = hole.link;
+
+            // Clear and populate tags
+            tagsEl.innerHTML = '';
+            hole.tags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = "bg-black text-white px-2 py-1 uppercase";
+                span.innerText = tag;
+                tagsEl.appendChild(span);
+            });
+
+            // Show Container
+            outputContainer.classList.remove('hidden');
+            
+            // Reset Button states
+            btn.innerText = "DIG AGAIN";
+            saveBtn.innerText = "SAVE FOR LATER";
+            shareBtn.innerText = "SHARE FINDING";
+            
+            // Save to history
+            saveHistory(hole);
+
+            // --- Find and Display Related Rabbit Hole ---
+            const relatedContainer = document.getElementById('relatedContainer');
+            const relatedTitleEl = document.getElementById('relatedTitle');
+            const relatedBtn = document.getElementById('relatedBtn');
+
+            const relatedPool = rabbitHoles.filter(h =>
+                h.title !== hole.title && h.tags.some(tag => hole.tags.includes(tag))
+            );
+
+            if (relatedPool.length > 0) {
+                const relatedHole = relatedPool[Math.floor(Math.random() * relatedPool.length)];
+                
+                relatedTitleEl.innerText = relatedHole.title;
+                
+                relatedBtn.onclick = () => {
+                    SFX.init();
+                    SFX.play('dig');
+                    setTimeout(() => {
+                        SFX.play('reveal');
+                        displayHole(relatedHole);
+                        // Scroll to the top of the container to see the new result
+                        outputContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 400);
+                };
+                
+                relatedContainer.classList.remove('hidden');
+            } else {
+                relatedContainer.classList.add('hidden');
+            }
+        }
+
+        // DOM Elements
+        const btn = document.getElementById('generateBtn');
+        const outputContainer = document.getElementById('outputContainer');
+        const titleEl = document.getElementById('holeTitle');
+        const tagsEl = document.getElementById('holeTags');
+        const descEl = document.getElementById('holeDesc');
+        const linkEl = document.getElementById('holeLink');
+        const filterSelect = document.getElementById('tagFilter');
+        const shareBtn = document.getElementById('shareBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        let currentHole = null;
+
+        // Populate Filter
+        const allTags = new Set();
+        rabbitHoles.forEach(h => h.tags.forEach(t => allTags.add(t)));
+        Array.from(allTags).sort().forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            opt.innerText = tag;
+            filterSelect.appendChild(opt);
+        });
+
+        // Logic
+        btn.addEventListener('click', () => {
+            // Init and play sounds
+            SFX.init();
+            SFX.play('dig');
+
+            // Filter based on selection
+            const category = filterSelect.value;
+            const pool = category === "ALL" ? rabbitHoles : rabbitHoles.filter(h => h.tags.includes(category));
+            
+            // Pick a random entry from pool
+            const randomIndex = Math.floor(Math.random() * pool.length);
+            const hole = pool[randomIndex];
+            
+            // Add a little text glitch effect to the button for feedback
+            btn.innerText = "DIGGING...";
+            
+            setTimeout(() => {
+                // Play reveal sound
+                SFX.play('reveal');
+                displayHole(hole);
+
+                // Scroll down slightly so mobile users see the result
+                outputContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+            }, 400); // Small artificial delay to make it feel like it's "computing"
+        });
+
+        shareBtn.addEventListener('click', () => {
+            if(!currentHole) return;
+            const text = `Come explore ${currentHole.title} with me at: ${currentHole.link} !`;
+            navigator.clipboard.writeText(text).then(() => {
+                shareBtn.innerText = "COPIED!";
+                setTimeout(() => shareBtn.innerText = "SHARE FINDING", 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        });
+
+        // --- UI Utils ---
+        function toggleMenu() {
+            const modal = document.getElementById('menuModal');
+            const content = document.getElementById('menuContent');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                // Trigger reflow
+                void modal.offsetWidth;
+                content.classList.remove('translate-x-full');
+            } else {
+                content.classList.add('translate-x-full');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        function showToast(msg, colors="bg-black text-white") {
+            const container = document.getElementById('toastContainer');
+            const el = document.createElement('div');
+            el.className = `border-4 border-black p-4 font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] transition-all transform translate-x-full pointer-events-auto ${colors}`;
+            el.innerText = msg;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.remove('translate-x-full'));
+            setTimeout(() => { el.classList.add('translate-x-full'); setTimeout(() => el.remove(), 300); }, 2500);
+        }
+        
+        saveBtn.addEventListener('click', saveToLater);
+
+        // Init history
+        renderHistory();
+        renderSaved();
+    </script>
+</body>
+</html>
