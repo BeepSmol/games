@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTDRdle - The Retro Guessing Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* RETRO & SIMPLISTIC STYLING */
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --correct: #00AA00; /* Retro Green */
+            --incorrect: #AA0000; /* Retro Red */
+            --partial: #AAAA00; /* Retro Yellow/Orange for partial matches if needed */
+            --border-color: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'VT323', monospace; /* 8-bit style font */
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #555;
+        }
+
+        p.subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+
+        /* INPUT AREA */
+        .input-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        input[type="text"] {
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            padding: 10px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+            outline: none;
+            width: 250px;
+            text-transform: capitalize;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--correct);
+        }
+
+        button {
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            padding: 10px 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            background-color: var(--bg-color);
+        }
+
+        /* CUSTOM MESSAGE BOX (No boring alerts!) */
+        #message-box {
+            min-height: 30px;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #FFDD00;
+        }
+
+        #guesses-left {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+
+        /* GUESS GRID */
+        .game-board {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-row, .guess-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .header-cell {
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .guess-cell {
+            border: 2px solid var(--border-color);
+            padding: 15px 5px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word;
+            min-height: 60px;
+        }
+
+        /* FEEDBACK CLASSES */
+        .status-correct {
+            background-color: var(--correct);
+            border-color: var(--correct);
+        }
+
+        .status-incorrect {
+            background-color: var(--incorrect);
+            border-color: var(--incorrect);
+        }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 600px) {
+            .header-cell { font-size: 1rem; }
+            .guess-cell { font-size: 0.9rem; padding: 10px 2px; min-height: 50px; }
+            input[type="text"] { width: 180px; font-size: 1.2rem; }
+            button { font-size: 1.2rem; }
+        }
+
+        #restart-btn {
+            display: none;
+            margin-top: 20px;
+            background-color: var(--correct);
+            color: #fff;
+            border-color: var(--correct);
+        }
+        #restart-btn:hover {
+            background-color: #fff;
+            color: var(--correct);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>[[UTDRdle]]</h1>
+    <p class="subtitle">Guess the UNDERTALE / DELTARUNE Character!</p>
+
+    <p id="guesses-left">GUESSES LEFT: 5</p>
+    <div id="message-box"></div>
+
+    <div class="input-container">
+        <!-- Datalist provides auto-complete to prevent typos -->
+        <input type="text" id="guess-input" list="character-list" placeholder="ENTER NAME..." autocomplete="off">
+        <datalist id="character-list"></datalist>
+        
+        <button id="submit-btn" onclick="submitGuess()">Guess</button>
+    </div>
+
+    <div class="game-board" id="game-board">
+        <!-- Headers -->
+        <div class="header-row">
+            <div class="header-cell">NAME</div>
+            <div class="header-cell">GAME</div>
+            <div class="header-cell">SPECIES</div>
+            <div class="header-cell">ROLE</div>
+            <div class="header-cell">COLOR</div>
+        </div>
+        <!-- Guesses will be injected here via JS -->
+        <div id="guesses-container"></div>
+    </div>
+
+    <button id="restart-btn" onclick="startNewGame()">PLAY AGAIN?</button>
+
+    <script>
+        // 1. THE CHARACTER DATABASE
+        const CHARACTERS = [
+            { name: "Spamton", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "White" },
+            { name: "Sans", game: "Undertale", species: "Skeleton", role: "Boss", color: "Blue" },
+            { name: "Papyrus", game: "Undertale", species: "Skeleton", role: "Boss", color: "Red" },
+            { name: "Ralsei", game: "Deltarune Ch1", species: "Darkner", role: "Main", color: "Green" },
+            { name: "Susie", game: "Deltarune Ch1", species: "Monster", role: "Main", color: "Purple" },
+            { name: "Kris", game: "Deltarune Ch1", species: "Human", role: "Main", color: "Blue" },
+            { name: "Toriel", game: "Undertale", species: "Boss Monster", role: "Boss", color: "Purple" },
+            { name: "Undyne", game: "Undertale", species: "Fish Monster", role: "Boss", color: "Blue" },
+            { name: "Alphys", game: "Undertale", species: "Lizard Monster", role: "NPC", color: "Yellow" },
+            { name: "Mettaton", game: "Undertale", species: "Robot", role: "Boss", color: "Pink" },
+            { name: "Asgore", game: "Undertale", species: "Boss Monster", role: "Boss", color: "Yellow" },
+            { name: "Flowey", game: "Undertale", species: "Flower", role: "Boss", color: "Yellow" },
+            { name: "Jevil", game: "Deltarune Ch1", species: "Darkner", role: "Boss", color: "Purple" },
+            { name: "Lancer", game: "Deltarune Ch1", species: "Darkner", role: "Boss", color: "Blue" },
+            { name: "Berdly", game: "Deltarune Ch2", species: "Monster", role: "Boss", color: "Blue" },
+            { name: "Noelle", game: "Deltarune Ch2", species: "Monster", role: "Main", color: "Yellow" },
+            { name: "Queen", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Black" },
+            { name: "King", game: "Deltarune Ch1", species: "Darkner", role: "Boss", color: "Blue" },
+            { name: "Temmie", game: "Undertale", species: "Temmie", role: "NPC", color: "Blue" },
+            { name: "Muffet", game: "Undertale", species: "Spider", role: "Boss", color: "Purple" },
+            { name: "Napstablook", game: "Undertale", species: "Ghost", role: "NPC", color: "White" },
+            { name: "Frisk", game: "Undertale", species: "Human", role: "Main", color: "Red" },
+            { name: "Chara", game: "Undertale", species: "Human", role: "Main", color: "Green" },
+            { name: "Seam", game: "Deltarune Ch1", species: "Darkner", role: "NPC", color: "Purple" },
+            { name: "Rouxls Kaard", game: "Deltarune Ch1", species: "Darkner", role: "Boss", color: "Blue" },
+            // NEW CHARACTERS ADDED
+            { name: "Asriel", game: "Undertale", species: "Boss Monster", role: "Boss", color: "White" },
+            { name: "Gaster", game: "Undertale", species: "Skeleton", role: "NPC", color: "White" },
+            { name: "Monster Kid", game: "Undertale", species: "Monster", role: "NPC", color: "Yellow" },
+            { name: "Burgerpants", game: "Undertale", species: "Monster", role: "NPC", color: "Orange" },
+            { name: "Bratty", game: "Undertale", species: "Monster", role: "NPC", color: "Green" },
+            { name: "Catty", game: "Undertale", species: "Monster", role: "NPC", color: "Purple" },
+            { name: "Gerson", game: "Undertale", species: "Monster", role: "NPC", color: "Green" },
+            { name: "River Person", game: "Undertale", species: "Unknown", role: "NPC", color: "Purple" },
+            { name: "Mad Mew Mew", game: "Undertale", species: "Ghost", role: "Boss", color: "Pink" },
+            { name: "Tasque Manager", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Blue" },
+            { name: "Swatch", game: "Deltarune Ch2", species: "Darkner", role: "NPC", color: "Black" },
+            { name: "Nubert", game: "Deltarune Ch2", species: "Darkner", role: "NPC", color: "Red" },
+            { name: "Starwalker", game: "Deltarune Ch1", species: "Darkner", role: "NPC", color: "Yellow" },
+            { name: "Sweet", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Black" },
+            { name: "Cap'n", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Black" },
+            { name: "K_K", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Green" },
+            { name: "Catti", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Black" },
+            { name: "Jockington", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Green" },
+            { name: "Rudy", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Red" }
+        ];
+
+        // GAME STATE
+        let targetCharacter = null;
+        let gameOver = false;
+        let guessesLeft = 5;
+
+        // DOM ELEMENTS
+        const inputField = document.getElementById('guess-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const guessesContainer = document.getElementById('guesses-container');
+        const messageBox = document.getElementById('message-box');
+        const guessesLeftDisplay = document.getElementById('guesses-left');
+        const datalist = document.getElementById('character-list');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // 2. INITIALIZATION
+        function init() {
+            // Populate the datalist so players don't have to guess spelling perfectly
+            datalist.innerHTML = "";
+            CHARACTERS.sort((a, b) => a.name.localeCompare(b.name)).forEach(char => {
+                const option = document.createElement('option');
+                option.value = char.name;
+                datalist.appendChild(option);
+            });
+
+            startNewGame();
+        }
+
+        function startNewGame() {
+            // Pick random target
+            const randomIndex = Math.floor(Math.random() * CHARACTERS.length);
+            targetCharacter = CHARACTERS[randomIndex];
+            
+            // Reset UI
+            guessesContainer.innerHTML = '';
+            inputField.value = '';
+            inputField.disabled = false;
+            submitBtn.disabled = false;
+            restartBtn.style.display = 'none';
+            gameOver = false;
+            guessesLeft = 5;
+            updateGuessesDisplay();
+            showMessage("GAME STARTED! MAKE A GUESS.");
+            inputField.focus();
+
+            // For debugging (delete in production!)
+            console.log(`Psst... The answer is ${targetCharacter.name}`);
+        }
+
+        function updateGuessesDisplay() {
+            guessesLeftDisplay.textContent = `GUESSES LEFT: ${guessesLeft}`;
+        }
+
+        // 3. CORE LOGIC: THE GUESS SUBMISSION
+        function submitGuess() {
+            if (gameOver) return;
+
+            const guessName = inputField.value.trim();
+            if (!guessName) return;
+
+            // Find character in database (case insensitive)
+            const guessedChar = CHARACTERS.find(c => c.name.toLowerCase() === guessName.toLowerCase());
+
+            if (!guessedChar) {
+                showMessage("INVALID [[Entity]]. NOT IN DATABASE!");
+                return;
+            }
+
+            showMessage(""); // Clear message
+            compareAndRender(guessedChar);
+            
+            inputField.value = ""; // Clear input
+            inputField.focus();
+
+            guessesLeft--;
+            updateGuessesDisplay();
+
+            // Check Win Condition
+            if (guessedChar.name === targetCharacter.name) {
+                handleWin();
+            } else if (guessesLeft <= 0) {
+                handleLoss();
+            }
+        }
+
+        // Allow pressing "Enter" to submit
+        inputField.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                submitGuess();
+            }
+        });
+
+        // 4. COMPARE TRAITS & RENDER
+        function compareAndRender(guess) {
+            const row = document.createElement('div');
+            row.className = 'guess-row';
+
+            // Define the traits we are checking in order
+            const traits = ['name', 'game', 'species', 'role', 'color'];
+
+            traits.forEach(trait => {
+                const cell = document.createElement('div');
+                cell.className = 'guess-cell';
+                
+                let cellText = guess[trait];
+
+                // Simplistic comparison: Exact Match = Correct, Else = Incorrect
+                // (You can add "Partial" logic here later if you want!)
+                if (guess[trait] === targetCharacter[trait]) {
+                    cell.classList.add('status-correct');
+                } else {
+                    cell.classList.add('status-incorrect');
+
+                    // Check for higher/lower chapter in Deltarune
+                    if (trait === 'game' && guess[trait].startsWith('Deltarune') && targetCharacter[trait].startsWith('Deltarune')) {
+                        const guessChapter = parseInt(guess[trait].replace('Deltarune Ch', ''));
+                        const targetChapter = parseInt(targetCharacter[trait].replace('Deltarune Ch', ''));
+                        
+                        if (targetChapter > guessChapter) {
+                            cellText += ' ⬆️';
+                        } else if (targetChapter < guessChapter) {
+                            cellText += ' ⬇️';
+                        }
+                    }
+                }
+
+                cell.textContent = cellText;
+                row.appendChild(cell);
+            });
+
+            // Add the new row to the top of the guesses container
+            guessesContainer.insertBefore(row, guessesContainer.firstChild);
+        }
+
+        // 5. HELPER FUNCTIONS
+        function showMessage(msg) {
+            messageBox.textContent = msg;
+        }
+
+        function handleWin() {
+            gameOver = true;
+            inputField.disabled = true;
+            submitBtn.disabled = true;
+            showMessage(`YOU WON! YOU ARE A [[Big Shot]]!!`);
+            restartBtn.style.display = 'inline-block';
+        }
+
+        function handleLoss() {
+            gameOver = true;
+            inputField.disabled = true;
+            submitBtn.disabled = true;
+            showMessage(`OUT OF GUESSES! THE ANSWER WAS [[${targetCharacter.name.toUpperCase()}]]!`);
+            restartBtn.style.display = 'inline-block';
+        }
+
+        // Boot up the game
+        window.onload = init;
+
+    </script>
+</body>
+</html>
