@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UTDRdle - The Retro Guessing Game</title>
+    <title>UTDRdle</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         /* RETRO & SIMPLISTIC STYLING */
@@ -176,7 +176,7 @@
 </head>
 <body>
 
-    <h1>[[UTDRdle]]</h1>
+    <h1>UTDRdle</h1>
     <p class="subtitle">Guess the UNDERTALE / DELTARUNE Character!</p>
 
     <p id="guesses-left">GUESSES LEFT: 5</p>
@@ -231,20 +231,19 @@
             { name: "Napstablook", game: "Undertale", species: "Ghost", role: "NPC", color: "White" },
             { name: "Frisk", game: "Undertale", species: "Human", role: "Main", color: "Red" },
             { name: "Chara", game: "Undertale", species: "Human", role: "Main", color: "Green" },
-            { name: "Seam", game: "Deltarune Ch1", species: "Darkner", role: "NPC", color: "Purple" },
+            { name: "Seam", game: "Deltarune Ch1", species: "Darkner", role: "Shopkeeper", color: "Purple" },
             { name: "Rouxls Kaard", game: "Deltarune Ch1", species: "Darkner", role: "Boss", color: "Blue" },
-            // NEW CHARACTERS ADDED
             { name: "Asriel", game: "Undertale", species: "Boss Monster", role: "Boss", color: "White" },
             { name: "Gaster", game: "Undertale", species: "Skeleton", role: "NPC", color: "White" },
             { name: "Monster Kid", game: "Undertale", species: "Monster", role: "NPC", color: "Yellow" },
-            { name: "Burgerpants", game: "Undertale", species: "Monster", role: "NPC", color: "Orange" },
+            { name: "Burgerpants", game: "Undertale", species: "Monster", role: "Shopkeeper", color: "Orange" },
             { name: "Bratty", game: "Undertale", species: "Monster", role: "NPC", color: "Green" },
             { name: "Catty", game: "Undertale", species: "Monster", role: "NPC", color: "Purple" },
-            { name: "Gerson", game: "Undertale", species: "Monster", role: "NPC", color: "Green" },
+            { name: "Gerson", game: "Undertale", species: "Monster", role: "Shopkeeper", color: "Green" },
             { name: "River Person", game: "Undertale", species: "Unknown", role: "NPC", color: "Purple" },
             { name: "Mad Mew Mew", game: "Undertale", species: "Ghost", role: "Boss", color: "Pink" },
             { name: "Tasque Manager", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Blue" },
-            { name: "Swatch", game: "Deltarune Ch2", species: "Darkner", role: "NPC", color: "Black" },
+            { name: "Swatch", game: "Deltarune Ch2", species: "Darkner", role: "Shopkeeper", color: "Black" },
             { name: "Nubert", game: "Deltarune Ch2", species: "Darkner", role: "NPC", color: "Red" },
             { name: "Starwalker", game: "Deltarune Ch1", species: "Darkner", role: "NPC", color: "Yellow" },
             { name: "Sweet", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Black" },
@@ -252,7 +251,19 @@
             { name: "K_K", game: "Deltarune Ch2", species: "Darkner", role: "Boss", color: "Green" },
             { name: "Catti", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Black" },
             { name: "Jockington", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Green" },
-            { name: "Rudy", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Red" }
+            { name: "Rudy", game: "Deltarune Ch1", species: "Monster", role: "NPC", color: "Red" },
+            { name: "Tenna", game: "Deltarune Ch3", species: "Darkner", role: "Boss", color: "Red" },
+            { name: "Mike (small)", game: "Deltarune Ch4", species: "Mike", role: "Boss", color: "Grey" },
+            { name: "Mike (tall)", game: "Deltarune Ch4", species: "Mike", role: "Boss", color: "Grey" },
+            { name: "Mike (pluey)", game: "Deltarune Ch4", species: "Mike", role: "Boss", color: "Black" },
+            { name: "Lanino", game: "Deltarune Ch3", species: "Darkner", role: "Boss", color: "Yellow" },
+            { name: "ELnina", game: "Deltarune Ch3", species: "Darkner", role: "Boss", color: "Blue" },
+            { name: "Shadowguy", game: "Deltarune Ch3", species: "Darkner", role: "NPC", color: "Black" },
+            { name: "Watercooler", game: "Deltarune Ch4", species: "Darkner", role: "Boss", color: "Blue" },
+            { name: "Jackenstein", game: "Deltarune Ch4", species: "Darkner", role: "Boss", color: "Red" },
+            { name: "Titan", game: "Deltarune Ch4", species: "Darkness", role: "Boss", color: "Black" },
+            { name: "Roaring Knight", game: "Deltarune Ch3", species: "Darkness", role: "Boss", color: "Black" },
+            { name: "Titan Fetus", game: "Deltarune Ch4", species: "Darkness", role: "Boss", color: "Black" }
         ];
 
         // GAME STATE
@@ -318,7 +329,7 @@
             const guessedChar = CHARACTERS.find(c => c.name.toLowerCase() === guessName.toLowerCase());
 
             if (!guessedChar) {
-                showMessage("INVALID [[Entity]]. NOT IN DATABASE!");
+                showMessage("NOT IN DATABASE!");
                 return;
             }
 
