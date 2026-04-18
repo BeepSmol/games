@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>untitled wave game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none; /* Prevent scroll on mobile */
+        }
+        canvas {
+            display: block;
+        }
+        .neon-text {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #0ff;
+        }
+        .neon-text-red {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #f0f, 0 0 40px #f0f, 0 0 80px #f0f;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .card {
+            background: rgba(10, 10, 25, 0.9);
+            border: 2px solid #0ff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.8);
+            cursor: pointer;
+        }
+        #xp-bar-container {
+            width: 80%;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #0ff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px auto 0 auto;
+            box-shadow: 0 0 10px rgba(0,255,255,0.3);
+        }
+        #xp-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0ff, #0088ff);
+            transition: width 0.2s ease-out;
+        }
+        /* Mobile Joystick */
+        #joystick-area {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            display: none;
+            pointer-events: none;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 255, 255, 0.6);
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #0ff;
+        }
+        @media (max-width: 768px) {
+            #joystick-area { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="ui" class="ui-layer">
+        
+        <!-- HUD -->
+        <div id="hud" class="w-full flex-1 flex flex-col hidden">
+            <div id="xp-bar-container">
+                <div id="xp-bar"></div>
+            </div>
+            <div class="flex justify-between px-6 py-2 text-sm md:text-base font-bold tracking-widest text-cyan-300">
+                <div style="text-shadow: 0 0 5px #0ff;">LVL: <span id="level-display">1</span></div>
+                <div style="text-shadow: 0 0 5px #0ff;">TIME: <span id="time-display">00:00</span></div>
+            </div>
+            
+            <div id="joystick-area">
+                <div id="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- Class Selection -->
+        <div id="class-menu" class="interactive flex-1 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm hidden">
+            <h2 class="text-4xl font-black mb-8 text-cyan-400 neon-text">SELECT CLASS</h2>
+            <div id="class-cards" class="flex flex-col md:flex-row gap-6 px-4 w-full max-w-5xl justify-center">
+                <!-- Class cards injected here via JS -->
+            </div>
+            <button onclick="showMainMenu()" class="mt-8 text-gray-500 hover:text-white transition-colors text-sm uppercase tracking-widest">Back</button>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="interactive flex-1 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+            <h1 class="text-5xl md:text-7xl font-black mb-2 neon-text uppercase">Untitled</h1>
+            <h1 class="text-4xl md:text-6xl font-black mb-12 neon-text-red uppercase">Wave Game</h1>
+            <p class="text-gray-400 mb-8 max-w-md text-center px-4">Survive the endless geometric swarm. Collect energy, upgrade your systems, and dominate the grid.</p>
+            <p class="text-cyan-400 text-sm mb-8 text-center px-4">Controls: WASD / Arrows / Touch & Drag</p>
+            <button id="start-btn" class="px-8 py-4 bg-transparent border-2 border-cyan-400 text-cyan-400 font-bold text-xl rounded hover:bg-cyan-400 hover:text-black transition-all shadow-[0_0_15px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,1)]">INITIALIZE SYSTEM</button>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="interactive flex-1 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm hidden z-[60]">
+            <h1 class="text-6xl font-black mb-8 text-yellow-400 neon-text">PAUSED</h1>
+            <button onclick="togglePause()" class="px-8 py-4 bg-transparent border-2 border-cyan-400 text-cyan-400 font-bold text-xl rounded hover:bg-cyan-400 hover:text-black transition-all mb-4 w-64">RESUME</button>
+            <button onclick="location.reload()" class="px-8 py-4 bg-transparent border-2 border-red-500 text-red-500 font-bold text-xl rounded hover:bg-red-500 hover:text-white transition-all w-64">ABORT MISSION</button>
+        </div>
+
+        <!-- Level Up Menu -->
+        <div id="level-up-menu" class="interactive flex-1 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md hidden z-50">
+            <h2 class="text-4xl font-black mb-2 text-yellow-400" style="text-shadow: 0 0 15px rgba(255,255,0,0.8);">SYSTEM UPGRADE</h2>
+            <p class="mb-8 text-gray-300 tracking-wider">CHOOSE AUGMENTATION</p>
+            <div id="upgrade-cards" class="flex flex-col md:flex-row gap-6 px-4 w-full max-w-4xl justify-center">
+                <!-- Cards injected via JS -->
+            </div>
+            <button id="reroll-btn" onclick="rerollUpgrades()" class="mt-8 px-6 py-2 border-2 border-yellow-400 text-yellow-400 font-bold rounded hover:bg-yellow-400 hover:text-black transition-all">REROLL (1 LEFT)</button>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="admin-panel" class="interactive hidden absolute inset-0 bg-black/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6">
+            <h2 class="text-3xl font-black text-red-500 mb-6 neon-text-red">SYSTEM OVERRIDE</h2>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-sm bg-gray-900/50 p-6 rounded-lg border border-red-500/30">
+                <label class="text-cyan-300 font-bold flex items-center">LEVEL:</label>
+                <input type="number" id="admin-lvl" class="bg-black border border-cyan-500 px-3 py-1 text-white outline-none focus:border-white transition-colors">
+                
+                <label class="text-cyan-300 font-bold flex items-center">XP:</label>
+                <input type="number" id="admin-xp" class="bg-black border border-cyan-500 px-3 py-1 text-white outline-none focus:border-white transition-colors">
+                
+                <label class="text-cyan-300 font-bold flex items-center text-xs">GOD MODE:</label>
+                <div class="flex items-center">
+                    <input type="checkbox" id="admin-god" class="w-6 h-6 cursor-pointer">
+                </div>
+            </div>
+            <div class="mt-8 flex flex-col gap-3 w-full max-w-sm">
+                <button onclick="applyCheats()" class="w-full py-3 bg-red-600 text-white font-bold rounded hover:bg-red-500 transition-all shadow-[0_0_15px_rgba(255,0,0,0.4)]">APPLY OVERRIDE</button>
+                <button onclick="killAllEnemiesCheat()" class="w-full py-2 border-2 border-orange-500 text-orange-500 font-bold rounded hover:bg-orange-500 hover:text-black transition-all">NUCLEAR BLAST (KILL ALL)</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="triggerLevelUpFromAdmin()" class="py-2 bg-yellow-600 text-white font-bold rounded hover:bg-yellow-500 text-xs">TRIGGER LEVEL UP</button>
+                    <button onclick="maxAllWeaponsCheat()" class="py-2 bg-purple-600 text-white font-bold rounded hover:bg-purple-500 text-xs">MAX WEAPONS</button>
+                </div>
+                <button onclick="closeAdmin()" class="w-full py-2 mt-2 text-gray-400 hover:text-white transition-colors uppercase tracking-widest text-xs">Close Console</button>
+            </div>
+        </div>
+
+        <!-- Game Over -->
+        <div id="game-over-menu" class="interactive flex-1 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md hidden">
+            <h1 class="text-5xl md:text-7xl font-black mb-4 neon-text-red">SYSTEM FAILURE</h1>
+            <div class="text-xl mb-2 text-cyan-200">Survive Time: <span id="final-time" class="font-bold text-white">00:00</span></div>
+            <div class="text-xl mb-8 text-cyan-200">Level Reached: <span id="final-level" class="font-bold text-white">1</span></div>
+            <button id="restart-btn" class="px-8 py-4 bg-transparent border-2 border-pink-500 text-pink-500 font-bold text-xl rounded hover:bg-pink-500 hover:text-white transition-all shadow-[0_0_15px_rgba(255,0,255,0.5)] hover:shadow-[0_0_30px_rgba(255,0,255,1)]">REBOOT SYSTEM</button>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * ENGINE & SETUP
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const mainMenu = document.getElementById('main-menu');
+        const hud = document.getElementById('hud');
+        const classMenu = document.getElementById('class-menu');
+        const classCardsContainer = document.getElementById('class-cards');
+        const levelUpMenu = document.getElementById('level-up-menu');
+        const gameOverMenu = document.getElementById('game-over-menu');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const xpBar = document.getElementById('xp-bar');
+        const levelDisplay = document.getElementById('level-display');
+        const timeDisplay = document.getElementById('time-display');
+        const upgradeCardsContainer = document.getElementById('upgrade-cards');
+        const joystickArea = document.getElementById('joystick-area');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        // Game State
+        const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAME_OVER: 3, CLASS_SELECT: 4, PAUSED: 5 };
+        let currentState = STATE.MENU;
+        let lastTime = 0;
+        let gameTime = 0;
+        let frameCount = 0;
+        let beatCount = 0;
+        let canReroll = true;
+        let levelUpQueue = 0;
+        let previewingClassId = null;
+        let previewStartTime = 0;
+        let previewHandle = null;
+
+        // Resize handler
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        /**
+         * MATH & UTILS
+         */
+        class Vec2 {
+            constructor(x, y) { this.x = x; this.y = y; }
+            add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+            mult(n) { return new Vec2(this.x * n, this.y * n); }
+            mag() { return Math.sqrt(this.x*this.x + this.y*this.y); }
+            normalize() { 
+                let m = this.mag(); 
+                return m === 0 ? new Vec2(0,0) : new Vec2(this.x/m, this.y/m); 
+            }
+            dist(v) {
+                let dx = this.x - v.x;
+                let dy = this.y - v.y;
+                return Math.sqrt(dx*dx + dy*dy);
+            }
+            dot(v) { return this.x * v.x + this.y * v.y; }
+        }
+
+        function rand(min, max) { return Math.random() * (max - min) + min; }
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        /**
+         * INPUT HANDLING
+         */
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+        let touchInput = new Vec2(0, 0);
+        let isTouching = false;
+        let joystickCenter = new Vec2(0, 0);
+        let cameraZoom = 1.0;
+
+        let cheatCode = "adminpanel";
+        let cheatBuffer = "";
+
+        window.addEventListener('keydown', e => { 
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = true; 
+
+            // Cheat detection
+            if (e.target.tagName !== 'INPUT') {
+                cheatBuffer += e.key.toLowerCase();
+                if (!cheatCode.startsWith(cheatBuffer)) cheatBuffer = e.key.toLowerCase();
+                if (cheatBuffer === cheatCode) { openAdmin(); cheatBuffer = ""; }
+            }
+        });
+        window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+        // Touch / Mouse Joystick
+        function handlePointerDown(e) {
+            if(currentState !== STATE.PLAYING) return;
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            // If mobile, center joystick on bottom left area, otherwise follow pointer from center screen
+            if (window.innerWidth <= 768) {
+                let rect = joystickArea.getBoundingClientRect();
+                joystickCenter = new Vec2(rect.left + rect.width/2, rect.top + rect.height/2);
+            } else {
+                joystickCenter = new Vec2(canvas.width/2, canvas.height/2);
+            }
+            
+            updatePointerMove(clientX, clientY);
+            isTouching = true;
+        }
+
+        function updatePointerMove(clientX, clientY) {
+            let pointer = new Vec2(clientX, clientY);
+            let dir = pointer.sub(joystickCenter);
+            
+            // Visual joystick update
+            if (window.innerWidth <= 768) {
+                let maxDist = 40;
+                if (dir.mag() > maxDist) {
+                    let clamped = dir.normalize().mult(maxDist);
+                    joystickKnob.style.transform = `translate(calc(-50% + ${clamped.x}px), calc(-50% + ${clamped.y}px))`;
+                } else {
+                    joystickKnob.style.transform = `translate(calc(-50% + ${dir.x}px), calc(-50% + ${dir.y}px))`;
+                }
+            }
+
+            // Normalization for input
+            if(dir.mag() > 5) {
+                touchInput = dir.normalize();
+            } else {
+                touchInput = new Vec2(0,0);
+            }
+        }
+
+        function handlePointerMove(e) {
+            if(!isTouching) return;
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            updatePointerMove(clientX, clientY);
+        }
+
+        function handlePointerUp() {
+            isTouching = false;
+            touchInput = new Vec2(0,0);
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
+        }
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+        window.addEventListener('touchstart', handlePointerDown, {passive: false});
+        window.addEventListener('touchmove', handlePointerMove, {passive: false});
+        window.addEventListener('touchend', handlePointerUp);
+
+        // Global Keys & Zoom
+        window.addEventListener('keyup', e => {
+            if (e.key === 'Escape') togglePause();
+        });
+
+        window.addEventListener('wheel', e => {
+            if (currentState === STATE.PLAYING || currentState === STATE.PAUSED) {
+                cameraZoom -= e.deltaY * 0.001;
+                cameraZoom = Math.max(0.5, Math.min(cameraZoom, 2.0));
+            }
+        });
+
+        function togglePause() {
+            if (currentState === STATE.PLAYING) {
+                currentState = STATE.PAUSED;
+                document.getElementById('pause-menu').classList.remove('hidden');
+            } else if (currentState === STATE.PAUSED) {
+                currentState = STATE.PLAYING;
+                document.getElementById('pause-menu').classList.add('hidden');
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        /**
+         * GAME ENTITIES
+         */
+        let player, enemies, projectiles, particles, gems, floatingTexts;
+        let lastBeatIndex = -1;
+        const BPM = 120;
+        const BEAT_DURATION = 60 / BPM;
+
+        let camera = new Vec2(0, 0);
+
+        class Player {
+            constructor(classData) {
+                this.pos = new Vec2(0, 0);
+                this.radius = 15;
+                this.color = classData.color;
+                this.classType = classData.id;
+                this.notes = classData.notes;
+                this.inst = classData.instrument;
+                this.bassInst = classData.bassInstrument;
+                
+                // Stats from class
+                this.maxHp = classData.hp;
+                this.hp = this.maxHp;
+                this.speed = classData.speed;
+                this.pickupRange = classData.range;
+                this.hitRadius = classData.hitRadius || 15;
+                
+                // Beat-locking state
+                this.lastSubBeatIndex = -1;
+                this.pendingDamage = 0;
+                this.hitFlash = 0;
+                this.invulnTimer = 0;
+                this.godMode = false;
+
+                // Progression
+                this.level = 1;
+                this.xp = 0;
+                this.maxXp = 10;
+                
+                // Weapons (Rhythmically Adjusted)
+                // Cooldowns are now beat-based triggers
+                this.weapons = {
+                    blaster: { active: true, level: 1, damage: 12, speed: 450, pierce: 1 },
+                    aura: { active: classData.id === 'GUARDIAN', level: 1, cooldown: 2.0, armed: true, damage: 8, radius: 80, duration: 0.4, activeTime: 0 },
+                    orbiters: { active: false, level: 0, count: 2, speed: 3, distance: 65, damage: 12, angle: 0 },
+                    kick: { active: false, level: 0, damage: 45, radius: 140, activeTime: 0 },
+                    snare: { active: false, level: 0, damage: 80, activeTime: 0 },
+                    hihat: { active: false, level: 0, damage: 6 },
+                    lead: { active: false, level: 0, damage: 18, lastTargetPos: null }
+                };
+                
+                this.globalDamageMult = 1.0;
+            }
+
+            update(dt) {
+                // Movement
+                let dir = new Vec2(0, 0);
+                if (keys.w || keys.ArrowUp) dir.y -= 1;
+                if (keys.s || keys.ArrowDown) dir.y += 1;
+                if (keys.a || keys.ArrowLeft) dir.x -= 1;
+                if (keys.d || keys.ArrowRight) dir.x += 1;
+
+                if (dir.mag() > 0) {
+                    dir = dir.normalize();
+                } else if (touchInput.mag() > 0) {
+                    dir = touchInput;
+                }
+
+                this.pos = this.pos.add(dir.mult(this.speed * dt));
+
+                if (this.invulnTimer > 0) this.invulnTimer -= dt;
+
+                // Weapon Logic
+                this.updateWeapons(dt);
+            }
+
+            updateWeapons(dt) {
+                const currentBeat = Math.floor(gameTime / BEAT_DURATION);
+                const currentSubBeat = Math.floor(gameTime / (BEAT_DURATION / 4));
+                const isNewBeat = currentBeat !== lastBeatIndex;
+                const isNewSubBeat = currentSubBeat !== this.lastSubBeatIndex;
+                
+                if (isNewBeat) lastBeatIndex = currentBeat;
+                if (isNewSubBeat) this.lastSubBeatIndex = currentSubBeat;
+
+                if (this.hp <= 0) return;
+
+                // Process Rhythmic Feedback (Every 16th note)
+                if (isNewSubBeat) {
+                    // --- Procedural Backing Track ---
+                    // Level 5: Heavy Sub-Bass (Beats 1 & 3)
+                    if (this.level >= 5 && currentSubBeat % 8 === 0) {
+                        createAudioPulse(this.notes[0] / 4, this.bassInst, 0.5, 0.2, false);
+                    }
+                    // Level 10: Rhythmic Counter-Pluck (Beats 2 & 4)
+                    if (this.level >= 10 && currentSubBeat % 8 === 4) {
+                        createAudioPulse(this.notes[1], this.inst, 0.2, 0.12, false);
+                    }
+                    // Level 15: Harmonic Shimmer (Every 8th note off-beat)
+                    if (this.level >= 15 && currentSubBeat % 4 === 2) {
+                        createAudioPulse(this.notes[2] * 2, 'sine', 0.1, 0.06, false);
+                    }
+                    // Level 20: Bar Lead (Once per bar)
+                    if (this.level >= 20 && currentSubBeat % 16 === 2) {
+                        createAudioPulse(this.notes[3], this.inst, 0.8, 0.1, false);
+                    }
+                    // Level 25: Final Intensity (Constant 16th note drive)
+                    if (this.level >= 25) {
+                        createAudioPulse(6500, 'square', 0.02, 0.04, false);
+                    }
+
+                    // Apply queued damage
+                    if (this.pendingDamage > 0) {
+                        this.hp -= this.pendingDamage;
+                        this.hitFlash = 0.3;
+                        createAudioPulse(100, 'square', 0.2, 0.2, false); // Immediate crunch on beat
+                        this.pendingDamage = 0;
+                        if (this.hp <= 0) { gameOver(); return; }
+                    }
+
+                    // Process beat-locked XP collection
+                    let xpGained = 0;
+                    for (let i = gems.length - 1; i >= 0; i--) {
+                        if (gems[i].collectedOnBeat) {
+                            xpGained += gems[i].value;
+                            gems.splice(i, 1);
+                        }
+                    }
+                    if (xpGained > 0 && this.hp > 0) {
+                        this.gainXp(xpGained);
+                    }
+                }
+
+                // Blaster (Target closest enemy)
+                // Fires on every beat or every other beat depending on level
+                if (this.weapons.blaster.active && isNewBeat) {
+                    const beatSubdivision = this.weapons.blaster.level >= 5 ? 1 : 2; // Speed up rhythm at high lvl
+                    if (currentBeat % beatSubdivision === 0) {
+                        let target = this.getClosestEnemy(300 + (this.weapons.blaster.level * 50));
+                        if (target) {
+                            // Multiple shots at high levels
+                            let shots = Math.floor((this.weapons.blaster.level + 1) / 2);
+                            for(let i=0; i<shots; i++) {
+                                setTimeout(() => {
+                                    if(currentState !== STATE.PLAYING) return;
+                                    const t = this.getClosestEnemy(400);
+                                    let dir = t ? t.pos.sub(this.pos).normalize() : new Vec2(Math.random()-0.5, Math.random()-0.5).normalize();
+                                    projectiles.push(new Projectile(
+                                        this.pos.x, this.pos.y, 
+                                        dir, 
+                                        this.weapons.blaster.speed, 
+                                        this.weapons.blaster.damage * this.globalDamageMult, 
+                                        '#0ff', 
+                                        this.weapons.blaster.pierce
+                                    ));
+                                    if (t) createAudioPulse(this.notes[0], this.inst, 0.08, 0.1, true);
+                                }, i * (BEAT_DURATION / 4 * 1000));
+                            }
+                        }
+                    }
+                }
+
+                // Aura (Pulse around player)
+                if (this.weapons.aura.active && isNewBeat) {
+                    // Pulse every 4 beats (the bar)
+                    if (currentBeat % 4 === 0) {
+                         this.weapons.aura.activeTime = this.weapons.aura.duration;
+                         createAudioPulse(this.notes[1] || this.notes[0] / 2, this.inst, 0.2, 0.15, true);
+
+                         // Deal damage only to enemies in actual attack radius
+                         const currentRadius = this.weapons.aura.radius + (this.weapons.aura.level * 15);
+                         const targets = enemies.filter(e => e.pos.dist(this.pos) <= currentRadius + e.radius);
+                         targets.forEach(e => {
+                            const stillAlive = enemies.indexOf(e) !== -1;
+                            if (stillAlive) e.takeDamage(this.weapons.aura.damage * this.globalDamageMult);
+                         });
+                    }
+                }
+                
+                if (this.weapons.aura.active) {
+                    if (this.weapons.aura.activeTime > 0) {
+                        this.weapons.aura.activeTime -= dt;
+                    }
+                }
+
+                // Kick Drum (Thumper) - Beats 2 and 4
+                if (this.weapons.kick.active && isNewBeat && currentBeat % 2 === 1) {
+                    this.weapons.kick.activeTime = 0.4;
+                    createAudioPulse(55, 'sine', 0.4, 0.4, true);
+
+                    // Unified rhythmic damage logic using the dead flag
+                    const targets = enemies.filter(e => !e.dead && e.pos.dist(this.pos) <= this.weapons.kick.radius);
+                    targets.forEach(e => {
+                        if (e.dead) return;
+                        e.takeDamage(this.weapons.kick.damage * this.globalDamageMult);
+                        e.pos = e.pos.add(e.pos.sub(this.pos).normalize().mult(30));
+                    });
+                }
+                if (this.weapons.kick.activeTime > 0) this.weapons.kick.activeTime -= dt;
+
+                // Snare Burst - Every 8 Beats (Half-Time feel)
+                if (this.weapons.snare.active && isNewBeat && currentBeat % 8 === 4) {
+                    this.weapons.snare.activeTime = 0.3;
+                    createAudioPulse(180, 'triangle', 0.2, 0.15, true);
+                    
+                    // Directional blast logic
+                    let target = this.getClosestEnemy(300);
+                    if (target) {
+                        const dir = target.pos.sub(this.pos).normalize();
+                        const targets = enemies.filter(e => {
+                            if (e.dead) return false;
+                            const d = e.pos.dist(this.pos);
+                            if (d > 250) return false;
+                            if (d === 0) return true;
+                            return dir.dot(e.pos.sub(this.pos).mult(1/d)) > 0.7;
+                        });
+                        targets.forEach(e => {
+                            if (!e.dead) e.takeDamage(this.weapons.snare.damage * this.globalDamageMult);
+                        });
+                    }
+                }
+                if (this.weapons.snare.activeTime > 0) this.weapons.snare.activeTime -= dt;
+
+                // Hi-Hat (Shards) - Every 8th note off-beat
+                if (this.weapons.hihat.active && isNewSubBeat && currentSubBeat % 2 === 1) {
+                    let target = this.getClosestEnemy(400);
+                    if (target) {
+                        createAudioPulse(4000, 'square', 0.02, 0.05, true);
+                        projectiles.push(new Projectile(
+                            this.pos.x, this.pos.y, 
+                            target.pos.sub(this.pos).normalize(), 
+                            600, this.weapons.hihat.damage * this.globalDamageMult, 
+                            '#fff', 1
+                        ));
+                    }
+                }
+
+                // Lead Synth (Melody) - Cycles through class notes on 16th notes
+                if (this.weapons.lead.active && isNewSubBeat && currentSubBeat % 4 === 0) {
+                    let target = this.getClosestEnemy(500);
+                    if (target) {
+                        // Sync note selection to the global timeline so the melody stays consistent
+                        const noteIdx = Math.floor(currentSubBeat / 4) % this.notes.length;
+                        const note = this.notes[noteIdx];
+                        createAudioPulse(note * 2, this.inst, 0.1, 0.1, true);
+                        
+                        let dir = target.pos.sub(this.pos).normalize();
+                        const targets = enemies.filter(e => !e.dead && e.pos.dist(this.pos) < 500 && dir.dot(e.pos.sub(this.pos).normalize()) > 0.98);
+                        targets.forEach(e => {
+                            if (e.dead) return;
+                            e.takeDamage(this.weapons.lead.damage * this.globalDamageMult);
+                            spawnParticles(e.pos.x, e.pos.y, '#fff', 2);
+                        });
+                        this.weapons.lead.lastTargetPos = new Vec2(target.pos.x, target.pos.y);
+                    } else {
+                        this.weapons.lead.lastTargetPos = null; // Clear visual beam if not firing
+                    }
+                }
+
+                // Orbiters
+                if (this.weapons.orbiters.active) {
+                    this.weapons.orbiters.angle += this.weapons.orbiters.speed * dt;
+                    let count = this.weapons.orbiters.count + Math.floor(this.weapons.orbiters.level / 2);
+                    let dist = this.weapons.orbiters.distance + (this.weapons.orbiters.level * 5);
+                    let dmg = this.weapons.orbiters.damage * this.globalDamageMult;
+                    
+                    for (let i = 0; i < count; i++) {
+                        const a = this.weapons.orbiters.angle + (i * (Math.PI * 2 / count));
+                        const oPos = new Vec2(this.pos.x + Math.cos(a) * dist, this.pos.y + Math.sin(a) * dist);
+                        
+                        // Check collision with enemies
+                        for (let j = enemies.length - 1; j >= 0; j--) {
+                            const e = enemies[j];
+                            if (e.pos.dist(oPos) <= 15 + e.radius) {
+                                // Cooldown per enemy for orbital hit to prevent instant death
+                                if((e.hitByOrbitalTimer || 0) <= 0) {
+                                    e.takeDamage(dmg);
+                                    e.hitByOrbitalTimer = 0.5; // Half second invuln to orbiters
+                                    spawnParticles(oPos.x, oPos.y, '#f0f', 3);
+                                    if (isNewBeat && currentBeat % 2 === 0) {
+                                        createAudioPulse(this.notes[2] || this.notes[0] * 1.5, this.inst, 0.05, 0.1, true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            getClosestEnemy(maxRange) {
+                let closest = null;
+                let minDist = maxRange;
+                for (let e of enemies) {
+                    let d = this.pos.dist(e.pos);
+                    if (d < minDist) {
+                        minDist = d;
+                        closest = e;
+                    }
+                }
+                return closest;
+            }
+
+            gainXp(amount) {
+                this.xp += amount;
+                if (this.xp >= this.maxXp) {
+                    this.xp -= this.maxXp;
+                    this.level++;
+                    this.maxXp = Math.floor(this.maxXp * 1.4);
+                    levelDisplay.innerText = this.level;
+                    triggerLevelUp();
+                }
+                updateXpBar();
+            }
+
+            takeDamage(amount) {
+                if (this.invulnTimer > 0 || this.hp <= 0 || this.godMode) return;
+                
+                // Damage is queued to be applied on the next sub-beat
+                this.pendingDamage += amount;
+                this.invulnTimer = 0.2; // 0.2s grace period prevents "frame-perfect" damage stacking
+            }
+
+            draw(ctx) {
+                // Kick Visual
+                if (this.weapons.kick.active && this.weapons.kick.activeTime > 0) {
+                    ctx.beginPath();
+                    const visRadius = this.weapons.kick.radius * Math.max(0, (1 - this.weapons.kick.activeTime/0.4));
+                    ctx.arc(this.pos.x, this.pos.y, visRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 100, 0, ${this.weapons.kick.activeTime})`;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+
+                // Snare Visual
+                if (this.weapons.snare.active && this.weapons.snare.activeTime > 0) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.weapons.snare.activeTime})`;
+                    ctx.beginPath();
+                    ctx.arc(this.pos.x, this.pos.y, 200, -0.5, 0.5);
+                    ctx.lineTo(this.pos.x, this.pos.y);
+                    ctx.fill();
+                }
+
+                // Lead Beam Visual
+                if (this.weapons.lead.active && this.weapons.lead.lastTargetPos) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.pos.x, this.pos.y);
+                    ctx.lineTo(this.weapons.lead.lastTargetPos.x, this.weapons.lead.lastTargetPos.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.stroke();
+                }
+
+                // Aura
+                if (this.weapons.aura.active && this.weapons.aura.activeTime > 0) {
+                    let currentRadius = this.weapons.aura.radius + (this.weapons.aura.level * 15);
+                    ctx.beginPath();
+                    ctx.arc(this.pos.x, this.pos.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(0, 255, 255, ${this.weapons.aura.activeTime / this.weapons.aura.duration * 0.3})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${this.weapons.aura.activeTime / this.weapons.aura.duration})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Orbiters
+                if (this.weapons.orbiters.active) {
+                    let count = this.weapons.orbiters.count + Math.floor(this.weapons.orbiters.level / 2);
+                    let dist = this.weapons.orbiters.distance + (this.weapons.orbiters.level * 5);
+                    for (let i = 0; i < count; i++) {
+                        let a = this.weapons.orbiters.angle + (i * (Math.PI * 2 / count));
+                        let ox = this.pos.x + Math.cos(a) * dist;
+                        let oy = this.pos.y + Math.sin(a) * dist;
+                        
+                        ctx.beginPath();
+                        ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+                        ctx.fillStyle = '#f0f';
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#f0f';
+                        ctx.fill();
+                        ctx.shadowBlur = 0; // Reset
+                    }
+                }
+
+                // Player Body
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.hitRadius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.fill();
+                
+                // Inner core
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.hitRadius * 0.6, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Health Bar
+                const displayHp = Math.max(0, this.hp - this.pendingDamage);
+                if(displayHp < this.maxHp) {
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(this.pos.x - 15, this.pos.y + 20, 30, 4);
+                    ctx.fillStyle = '#0f0';
+                    ctx.fillRect(this.pos.x - 15, this.pos.y + 20, 30 * (displayHp / this.maxHp), 4);
+                }
+
+                // Update flash timer
+                if (this.hitFlash > 0) {
+                    this.hitFlash -= 0.016; // approx 60fps
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, type) {
+                this.pos = new Vec2(x, y);
+                this.type = type;
+                this.dead = false;
+                
+                // Scale stats based on game time (minutes)
+                let scale = 1 + (gameTime / 120) * 0.5; // Slower scaling
+
+                if (type === 1) { // Basic Chaser (Square) - The "Hi-Hat" of the combat
+                    this.radius = 12;
+                    this.speed = rand(70, 100);
+                    this.maxHp = 15 * scale;
+                    this.damage = 5 * scale;
+                    this.color = '#ff4444';
+                    this.xpValue = 1;
+                } else if (type === 2) { // Fast (Triangle)
+                    this.radius = 10;
+                    this.speed = rand(130, 160);
+                    this.maxHp = 8 * scale;
+                    this.damage = 3 * scale;
+                    this.color = '#ff00ff';
+                    this.xpValue = 2;
+                } else if (type === 3) { // Tank (Pentagon)
+                    this.radius = 20;
+                    this.speed = rand(40, 60);
+                    this.maxHp = 50 * scale;
+                    this.damage = 15 * scale;
+                    this.color = '#ffaa00';
+                    this.xpValue = 5;
+                }
+
+                this.hp = this.maxHp;
+                this.hitByOrbitalTimer = 0;
+            }
+
+            update(dt) {
+                if(this.hitByOrbitalTimer > 0) this.hitByOrbitalTimer -= dt;
+
+                let dir = player.pos.sub(this.pos).normalize();
+                
+                // Simple flocking/separation to prevent clumping into a single dot
+                let separation = new Vec2(0,0);
+                let count = 0;
+                // Only flock with a subset of enemies for performance
+                const checkCount = Math.min(enemies.length, 10); 
+                for(let i = 0; i < checkCount; i++) {
+                    const e = enemies[i];
+                    if(e === this) continue;
+                    const d = this.pos.dist(e.pos);
+                    if(d > 0 && d < this.radius + e.radius + 5) {
+                        separation = separation.add(this.pos.sub(e.pos).normalize().mult(1/(d+0.1)));
+                        count++;
+                    }
+                }
+                if(count > 0) {
+                    dir = dir.add(separation.mult(20)).normalize();
+                }
+
+                this.pos = this.pos.add(dir.mult(this.speed * dt));
+
+                // Collision with player
+                if (this.pos.dist(player.pos) < this.radius + player.hitRadius) {
+                    player.takeDamage(this.damage);
+                    // Knockback slightly to prevent rapid multi-hits
+                    let kb = this.pos.sub(player.pos).normalize().mult(this.radius + player.hitRadius + 10);
+                    this.pos = player.pos.add(kb);
+                }
+            }
+
+            takeDamage(amount) {
+                if (this.dead) return;
+                this.hp -= amount;
+                
+                // Flash white (simulate by creating brief white particle burst)
+                spawnParticles(this.pos.x, this.pos.y, '#fff', 1, 50);
+
+                floatingTexts.push(new FloatingText(this.pos.x, this.pos.y - 20, Math.floor(amount), '#fff'));
+
+                if (this.hp <= 0) {
+                    this.die();
+                }
+            }
+
+            die() {
+                if (this.dead) return;
+                this.dead = true;
+
+                // Drop Gem
+                gems.push(new Gem(this.pos.x, this.pos.y, this.xpValue));
+                
+                // Particles
+                spawnParticles(this.pos.x, this.pos.y, this.color, 10);
+                
+                // Play Sound
+                createAudioPulse(rand(100, 200), 'triangle', 0.05, 0.1, true);
+
+                // Remove from array
+                let index = enemies.indexOf(this);
+                if (index > -1) enemies.splice(index, 1);
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+
+                ctx.translate(this.pos.x, this.pos.y);
+                
+                // Point towards player for some shapes
+                let angle = Math.atan2(player.pos.y - this.pos.y, player.pos.x - this.pos.x);
+
+                if (this.type === 1) { // Square
+                    ctx.rotate(frameCount * 0.05); // Spin
+                    ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
+                    ctx.strokeRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
+                    ctx.rotate(-frameCount * 0.05);
+                } else if (this.type === 2) { // Triangle
+                    ctx.rotate(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(this.radius, 0);
+                    ctx.lineTo(-this.radius, this.radius * 0.8);
+                    ctx.lineTo(-this.radius, -this.radius * 0.8);
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.rotate(-angle);
+                } else { // Pentagon
+                    ctx.rotate(angle);
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        ctx.lineTo(this.radius * Math.cos(i * 2 * Math.PI / 5), this.radius * Math.sin(i * 2 * Math.PI / 5));
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.rotate(-angle);
+                }
+                
+                ctx.translate(-this.pos.x, -this.pos.y);
+                ctx.shadowBlur = 0;
+
+                // Health bar for tank
+                if (this.type === 3 && this.hp < this.maxHp) {
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(this.pos.x - 15, this.pos.y - this.radius - 10, 30, 4);
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(this.pos.x - 15, this.pos.y - this.radius - 10, 30 * (this.hp/this.maxHp), 4);
+                }
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, dir, speed, damage, color, pierce = 1) {
+                this.pos = new Vec2(x, y);
+                this.dir = dir;
+                this.speed = speed;
+                this.damage = damage;
+                this.color = color;
+                this.radius = 4;
+                this.life = 2.0; // seconds
+                this.pierce = pierce;
+                this.hitTargets = new Set();
+            }
+
+            update(dt) {
+                this.pos = this.pos.add(this.dir.mult(this.speed * dt));
+                this.life -= dt;
+
+                // Collision
+                for (let e of enemies) {
+                    if (!this.hitTargets.has(e) && this.pos.dist(e.pos) < this.radius + e.radius) {
+                        e.takeDamage(this.damage);
+                        this.hitTargets.add(e);
+                        this.pierce--;
+                        spawnParticles(this.pos.x, this.pos.y, this.color, 3);
+                        if (this.pierce <= 0) {
+                            this.life = 0; // mark for deletion
+                            break;
+                        }
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fill();
+                
+                // Trail
+                ctx.beginPath();
+                ctx.moveTo(this.pos.x, this.pos.y);
+                let tail = this.pos.sub(this.dir.mult(15));
+                ctx.lineTo(tail.x, tail.y);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Gem {
+            constructor(x, y, value) {
+                this.pos = new Vec2(x, y);
+                this.value = value;
+                this.radius = value > 1 ? 6 : 4;
+                this.color = value > 2 ? '#ff0' : (value > 1 ? '#0f0' : '#08f');
+                this.collecting = false;
+            }
+
+            update(dt) {
+                let dist = this.pos.dist(player.pos);
+                if (dist < player.pickupRange && !this.collecting) {
+                    this.collecting = true;
+                }
+
+                if (this.collecting) {
+                    // Fly towards player
+                    let dir = player.pos.sub(this.pos).normalize();
+                    this.pos = this.pos.add(dir.mult(400 * dt)); // Fast vacuum
+                    
+                    if (this.pos.dist(player.pos) < player.hitRadius) {
+                        // Mark for removal on the next beat
+                        this.collectedOnBeat = true;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                
+                // Diamond shape
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius);
+                ctx.lineTo(this.radius, 0);
+                ctx.lineTo(0, this.radius);
+                ctx.lineTo(-this.radius, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.translate(-this.pos.x, -this.pos.y);
+                
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, speedScale = 1) {
+                this.pos = new Vec2(x, y);
+                let angle = Math.random() * Math.PI * 2;
+                let speed = rand(50, 150) * speedScale;
+                this.vel = new Vec2(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                this.color = color;
+                this.life = rand(0.3, 0.6);
+                this.maxLife = this.life;
+                this.size = rand(2, 4);
+            }
+            update(dt) {
+                this.pos = this.pos.add(this.vel.mult(dt));
+                this.vel = this.vel.mult(0.9); // friction
+                this.life -= dt;
+            }
+            draw(ctx) {
+                let alpha = this.life / this.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.pos = new Vec2(x + rand(-10,10), y + rand(-10,10));
+                this.text = text;
+                this.color = color;
+                this.life = 0.8;
+                this.maxLife = 0.8;
+                this.vy = -30;
+            }
+            update(dt) {
+                this.pos.y += this.vy * dt;
+                this.life -= dt;
+            }
+            draw(ctx) {
+                let alpha = this.life / this.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 16px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = '#000';
+                ctx.fillText(this.text, this.pos.x, this.pos.y);
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function spawnParticles(x, y, color, count, speedScale = 1) {
+            for(let i=0; i<count; i++) {
+                particles.push(new Particle(x, y, color, speedScale));
+            }
+        }
+
+        /**
+         * GAME SYSTEMS
+         */
+        let enemySpawnTimer = 0;
+        
+        function initGame(classId) {
+            stopPreview();
+            const classData = CLASSES.find(c => c.id === classId);
+            player = new Player(classData);
+            enemies = [];
+            projectiles = [];
+            particles = [];
+            gems = [];
+            floatingTexts = [];
+            gameTime = 0;
+            frameCount = 0;
+            enemySpawnTimer = 0;
+            lastBeatIndex = -1;
+            lastTime = performance.now();
+            
+            // Spawn initial enemies within viewable radius
+            const initialEnemyCount = Math.floor(rand(2, 5));
+            for (let i = 0; i < initialEnemyCount; i++) {
+                spawnEnemy(rand(200, 400));
+            }
+            
+            updateXpBar();
+            levelDisplay.innerText = player.level;
+            timeDisplay.innerText = "00:00";
+            
+            currentState = STATE.PLAYING;
+            hud.classList.remove('hidden');
+            mainMenu.classList.add('hidden');
+            classMenu.classList.add('hidden');
+            gameOverMenu.classList.add('hidden');
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnEnemy(distOverride = null) {
+            let angle = Math.random() * Math.PI * 2;
+            let dist = distOverride !== null ? distOverride : Math.max(canvas.width, canvas.height) / 2 + 100;
+            let x = player.pos.x + Math.cos(angle) * dist;
+            let y = player.pos.y + Math.sin(angle) * dist;
+            
+            // Determine type based on time
+            let type = 1;
+            let r = Math.random();
+            if (gameTime > 60 && r < 0.2) type = 2; // Introduce fast later
+            if (gameTime > 120 && r < 0.3) type = 2;
+            if (gameTime > 240 && r > 0.9) type = 3; // Introduce tanks much later
+            if (gameTime > 400 && r > 0.8) type = 3;
+
+            enemies.push(new Enemy(x, y, type));
+        }
+
+        function updateXpBar() {
+            let pct = (player.xp / player.maxXp) * 100;
+            xpBar.style.width = `${pct}%`;
+        }
+
+        /**
+         * UPGRADE SYSTEM
+         */
+        const CLASSES = [
+            {
+                id: 'STRIKER',
+                name: 'Neon Striker',
+                desc: 'PRO: High speed & fire rate. CON: Low health & damage.',
+                hp: 60, speed: 280, range: 100, color: '#0ff',
+                notes: [440, 554, 659, 880], instrument: 'sawtooth', bassInstrument: 'square'
+            },
+            {
+                id: 'GUARDIAN',
+                name: 'Grid Guardian',
+                desc: 'PRO: Massive health & defensive aura. CON: Slow movement.',
+                hp: 250, speed: 140, range: 80, color: '#f0f',
+                notes: [98, 110, 123, 130], instrument: 'triangle', bassInstrument: 'sine'
+            },
+            {
+                id: 'ARCHITECT',
+                name: 'Void Architect',
+                desc: 'PRO: Huge collection range & XP gain. CON: Very fragile.',
+                hp: 50, speed: 200, range: 300, color: '#ff0',
+                notes: [329, 392, 440, 523], instrument: 'sine', bassInstrument: 'triangle'
+            },
+            {
+                id: 'BERSERKER',
+                name: 'Glitch Berserker',
+                desc: 'PRO: Heavy impact damage & sturdy. CON: Slow fire rate.',
+                hp: 150, speed: 160, range: 110, color: '#f50',
+                notes: [73, 82, 87, 92], instrument: 'square', bassInstrument: 'sawtooth'
+            },
+            {
+                id: 'PHANTOM',
+                name: 'Phantom Tracer',
+                desc: 'PRO: Extreme speed & tiny hitbox. CON: Minimal health.',
+                hp: 30, speed: 350, range: 60, color: '#fff', hitRadius: 8,
+                notes: [1046, 1174, 1318, 1567], instrument: 'sine', bassInstrument: 'square'
+            }
+        ];
+
+        const UPGRADES = [
+            { id: 'blaster_dmg', name: 'Blaster Overclock', desc: 'Increases Blaster damage and pierce.', type: 'weapon' },
+            { id: 'blaster_rate', name: 'Rapid Fire', desc: 'Decreases Blaster cooldown.', type: 'weapon' },
+            { id: 'aura_unlock', name: 'Energy Aura', desc: 'Creates a damaging zone around you.', type: 'weapon' },
+            { id: 'aura_range', name: 'Aura Amplifier', desc: 'Increases Aura size and damage.', type: 'weapon', req: 'aura_unlock' },
+            { id: 'orbiter_unlock', name: 'Orbital Defenses', desc: 'Spawns spheres that orbit and damage.', type: 'weapon' },
+            { id: 'orbiter_count', name: 'Extra Orbiters', desc: 'Adds more orbiting spheres.', type: 'weapon', req: 'orbiter_unlock' },
+            { id: 'kick_drum', name: 'Sonic Thumper', desc: 'Low frequency pulse on beats 2 & 4.', type: 'weapon' },
+            { id: 'snare_hit', name: 'Snare Burst', desc: 'High intensity front blast on beats 2 & 4.', type: 'weapon' },
+            { id: 'hihat_hat', name: 'Cymbal Shards', desc: 'Rapid shards fire on off-beats.', type: 'weapon' },
+            { id: 'lead_synth', name: 'Synth Lead', desc: 'Melodic piercing beam. (Needs Aura)', type: 'weapon', req: 'aura_unlock' },
+            { id: 'sub_bass', name: 'Sub-Bass Engine', desc: 'Constant heavy proximity damage. (Needs Thumper)', type: 'weapon', req: 'kick_drum', exclude: 'orbiter_unlock' },
+            { id: 'stat_speed', name: 'Thrusters', desc: 'Increases movement speed by 15%.', type: 'stat' },
+            { id: 'stat_magnet', name: 'Magnetic Field', desc: 'Increases pickup range.', type: 'stat' },
+            { id: 'stat_heal', name: 'Nanobots', desc: 'Restores 50% Max HP.', type: 'stat' },
+            { id: 'stat_dmg', name: 'Global Amplifier', desc: 'All damage increased by 10%.', type: 'stat' }
+        ];
+
+        function showClassSelect() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            currentState = STATE.CLASS_SELECT;
+            mainMenu.classList.add('hidden');
+            classMenu.classList.remove('hidden');
+            
+            classCardsContainer.innerHTML = '';
+            CLASSES.forEach(cls => {
+                let card = document.createElement('div');
+                card.className = 'card p-6 flex flex-col items-center text-center rounded-lg flex-1 border-gray-600';
+                card.style.borderColor = cls.color;
+                
+                let stats = `
+                    <div class="mt-4 text-[10px] uppercase font-bold tracking-tighter text-gray-400">
+                        HP: ${cls.hp} | SPD: ${cls.speed} | RNG: ${cls.range}
+                    </div>
+                `;
+
+                const isThisPreviewing = previewingClassId === cls.id;
+                const previewBtnText = isThisPreviewing ? 'Stop Preview' : 'Preview Theme';
+
+                card.innerHTML = `
+                    <div class="text-4xl mb-4" style="color: ${cls.color}">⬢</div>
+                    <h3 class="text-xl font-bold mb-2" style="color: ${cls.color}">${cls.name}</h3>
+                    <p class="text-xs text-gray-300 leading-relaxed">${cls.desc}</p>
+                    ${stats}
+                    <button onclick="event.stopPropagation(); previewClassSong('${cls.id}')" class="mt-4 px-4 py-1 border border-white/30 rounded text-[10px] ${isThisPreviewing ? 'bg-red-600/40' : 'hover:bg-white/10'} transition-colors uppercase tracking-widest">${previewBtnText}</button>
+                `;
+                
+                card.onclick = () => initGame(cls.id);
+                classCardsContainer.appendChild(card);
+            });
+        }
+
+        function showMainMenu() {
+            classMenu.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        }
+
+        function stopPreview() {
+            if (previewHandle) {
+                cancelAnimationFrame(previewHandle);
+                previewHandle = null;
+            }
+            previewingClassId = null;
+            if (currentState === STATE.CLASS_SELECT) showClassSelect();
+        }
+
+        function previewClassSong(classId) {
+            if (previewingClassId === classId) {
+                stopPreview();
+                return;
+            }
+            
+            stopPreview(); // Clear existing
+            
+            const cls = CLASSES.find(c => c.id === classId);
+            if(!cls) return;
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            
+            previewingClassId = classId;
+            previewStartTime = performance.now();
+            let lastPrevBeat = -1;
+            let lastPrevSubBeat = -1;
+            
+            function previewLoop(time) {
+                if (previewingClassId !== classId) return;
+                
+                const elapsed = (time - previewStartTime) / 1000;
+                if (elapsed > 30) { // Limit to 30s
+                    stopPreview();
+                    return;
+                }
+                
+                const curBeat = Math.floor(elapsed / BEAT_DURATION);
+                const curSubBeat = Math.floor(elapsed / (BEAT_DURATION / 4));
+                const isNewBeat = curBeat !== lastPrevBeat;
+                const isNewSubBeat = curSubBeat !== lastPrevSubBeat;
+                
+                if (isNewBeat) lastPrevBeat = curBeat;
+                if (isNewSubBeat) lastPrevSubBeat = curSubBeat;
+                
+                if (isNewSubBeat) {
+                    // Simulated Backing Layers (Levels 5, 10, 15, 20, 25)
+                    if (curSubBeat % 8 === 0) createAudioPulse(cls.notes[0] / 4, cls.bassInstrument, 0.5, 0.2); // Bass
+                    if (curSubBeat % 8 === 4) createAudioPulse(cls.notes[1], cls.instrument, 0.2, 0.12); // Counter
+                    if (curSubBeat % 4 === 2) createAudioPulse(cls.notes[2] * 2, 'sine', 0.1, 0.06); // Shimmer
+                    if (curSubBeat % 16 === 2) createAudioPulse(cls.notes[3] || cls.notes[0] * 2, cls.instrument, 0.8, 0.1); // Bar Lead
+                    createAudioPulse(6500, 'square', 0.02, 0.04); // 16th drive
+                    
+                    // Hi-hat and Lead Weapon rhythm
+                    if (curSubBeat % 2 === 1) createAudioPulse(4000, 'square', 0.02, 0.05);
+                    if (curSubBeat % 4 === 0) {
+                        const noteIdx = Math.floor(curSubBeat / 4) % cls.notes.length;
+                        createAudioPulse(cls.notes[noteIdx] * 2, cls.instrument, 0.1, 0.1);
+                    }
+                }
+                
+                if (isNewBeat) {
+                    createAudioPulse(cls.notes[0], cls.instrument, 0.08, 0.1); // Blaster
+                    if (curBeat % 2 === 1) createAudioPulse(55, 'sine', 0.4, 0.4); // Kick
+                    if (curBeat % 8 === 4) createAudioPulse(180, 'triangle', 0.2, 0.15); // Snare
+                    if (curBeat % 4 === 0) createAudioPulse(cls.notes[1] || cls.notes[0] / 2, cls.instrument, 0.2, 0.15); // Aura
+                }
+                
+                previewHandle = requestAnimationFrame(previewLoop);
+            }
+            previewHandle = requestAnimationFrame(previewLoop);
+            showClassSelect(); // Trigger button text update
+        }
+
+        function openAdmin() {
+            if (currentState === STATE.MENU || currentState === STATE.CLASS_SELECT || !player) return;
+            const panel = document.getElementById('admin-panel');
+            panel.classList.remove('hidden');
+            document.getElementById('admin-lvl').value = player.level;
+            document.getElementById('admin-xp').value = player.xp;
+            document.getElementById('admin-god').checked = player.godMode;
+            
+            if (currentState === STATE.PLAYING) {
+                currentState = STATE.PAUSED;
+            }
+        }
+
+        function closeAdmin() {
+            document.getElementById('admin-panel').classList.add('hidden');
+            if (currentState === STATE.PAUSED) {
+                currentState = STATE.PLAYING;
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function applyCheats() {
+            const oldLvl = player.level;
+            const newLvl = parseInt(document.getElementById('admin-lvl').value) || player.level;
+            const newXp = parseInt(document.getElementById('admin-xp').value) || 0;
+            
+            player.level = newLvl;
+            player.xp = newXp;
+            player.godMode = document.getElementById('admin-god').checked;
+            player.maxXp = 10;
+            for(let i=1; i<player.level; i++) player.maxXp = Math.floor(player.maxXp * 1.4);
+            levelDisplay.innerText = player.level;
+            
+            // Trigger popups for every level gained
+            if (newLvl > oldLvl) {
+                levelUpQueue += (newLvl - oldLvl);
+            }
+
+            updateXpBar();
+            closeAdmin();
+            
+            if (levelUpQueue > 0 && currentState === STATE.PLAYING) {
+                levelUpQueue--;
+                triggerLevelUp();
+            }
+        }
+
+        function triggerLevelUpFromAdmin() {
+            levelUpQueue++;
+            if (currentState === STATE.PLAYING) {
+                levelUpQueue--;
+                triggerLevelUp();
+            }
+            closeAdmin();
+        }
+
+        function killAllEnemiesCheat() {
+            enemies.forEach(e => e.die());
+            closeAdmin();
+        }
+
+        function maxAllWeaponsCheat() {
+            Object.keys(player.weapons).forEach(w => {
+                player.weapons[w].active = true;
+                player.weapons[w].level = 10;
+            });
+            player.globalDamageMult = 5.0;
+            closeAdmin();
+        }
+
+        function triggerLevelUp(isReroll = false) {
+            if (currentState === STATE.LEVEL_UP && !isReroll) {
+                levelUpQueue++;
+                return;
+            }
+            if (!isReroll) canReroll = true;
+            currentState = STATE.LEVEL_UP;
+            levelUpMenu.classList.remove('hidden');
+            
+            const rerollBtn = document.getElementById('reroll-btn');
+            rerollBtn.classList.toggle('hidden', !canReroll);
+
+            // Generate 3 random choices
+            let choices = [];
+            let pool = [...UPGRADES];
+            
+            pool = pool.filter(u => {
+                // Check dependencies
+                const hasAura = player.weapons.aura.active;
+                const hasKick = player.weapons.kick.active;
+                const hasOrbiters = player.weapons.orbiters.active;
+
+                if (u.req === 'aura_unlock' && !hasAura) return false;
+                if (u.req === 'kick_drum' && !hasKick) return false;
+                if (u.req === 'orbiter_unlock' && !hasOrbiters) return false;
+                
+                // Check exclusions
+                if (u.exclude === 'orbiter_unlock' && hasOrbiters) return false;
+                
+                if (u.type === 'stat') return true; // Always allow stat upgrades
+
+                // Hide already owned unique unlocks
+                if (u.id === 'aura_unlock' && player.weapons.aura.active) return false;
+                if (u.id === 'orbiter_unlock' && player.weapons.orbiters.active) return false;
+                if (u.id === 'kick_drum' && player.weapons.kick.active) return false;
+                if (u.id === 'snare_hit' && player.weapons.snare.active) return false;
+                if (u.id === 'hihat_hat' && player.weapons.hihat.active) return false;
+                if (u.id === 'lead_synth' && player.weapons.lead.active) return false;
+                
+                return true;
+            });
+
+            for(let i=0; i<3; i++) {
+                if(pool.length === 0) break;
+                let idx = Math.floor(Math.random() * pool.length);
+                choices.push(pool[idx]);
+                pool.splice(idx, 1);
+            }
+
+            // Render cards
+            upgradeCardsContainer.innerHTML = '';
+            choices.forEach(upgrade => {
+                let card = document.createElement('div');
+                card.className = 'card p-6 flex flex-col items-center text-center rounded-lg flex-1';
+                
+                let icon = '⚡';
+                if(upgrade.type==='weapon') icon = '🔫';
+                if(upgrade.id.includes('aura')) icon = '⭕';
+                if(upgrade.id.includes('orbiter')) icon = '🪐';
+                if(upgrade.id.includes('heal')) icon = '❤️';
+
+                card.innerHTML = `
+                    <div class="text-4xl mb-4">${icon}</div>
+                    <h3 class="text-xl font-bold text-cyan-300 mb-2">${upgrade.name}</h3>
+                    <p class="text-sm text-gray-300">${upgrade.desc}</p>
+                `;
+                
+                card.onclick = () => applyUpgrade(upgrade.id);
+                upgradeCardsContainer.appendChild(card);
+            });
+        }
+
+        function rerollUpgrades() {
+            canReroll = false;
+            triggerLevelUp(true);
+        }
+
+        function applyUpgrade(id) {
+            switch(id) {
+                case 'blaster_dmg':
+                    player.weapons.blaster.level++;
+                    player.weapons.blaster.damage += 5;
+                    if(player.weapons.blaster.level % 3 === 0) player.weapons.blaster.pierce++;
+                    break;
+                case 'blaster_rate':
+                    player.weapons.blaster.cooldown = Math.max(0.2, player.weapons.blaster.cooldown * 0.8);
+                    break;
+                case 'aura_unlock':
+                    player.weapons.aura.active = true;
+                    player.weapons.aura.level = 1;
+                    break;
+                case 'aura_range':
+                    player.weapons.aura.level++;
+                    player.weapons.aura.damage += 3;
+                    break;
+                case 'orbiter_unlock':
+                    player.weapons.orbiters.active = true;
+                    player.weapons.orbiters.level = 1;
+                    break;
+                case 'orbiter_count':
+                    player.weapons.orbiters.level++;
+                    break;
+                case 'kick_drum':
+                    player.weapons.kick.active = true;
+                    break;
+                case 'snare_hit':
+                    player.weapons.snare.active = true;
+                    break;
+                case 'hihat_hat':
+                    player.weapons.hihat.active = true;
+                    break;
+                case 'lead_synth':
+                    player.weapons.lead.active = true;
+                    break;
+                case 'sub_bass':
+                    player.weapons.aura.damage *= 2.5; // Sub bass buffs proximity damage
+                    break;
+                case 'stat_speed':
+                    player.speed *= 1.15;
+                    break;
+                case 'stat_magnet':
+                    player.pickupRange += 40;
+                    break;
+                case 'stat_heal':
+                    player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.5));
+                    break;
+                case 'stat_dmg':
+                    player.globalDamageMult += 0.1;
+                    break;
+            }
+            
+            levelUpMenu.classList.add('hidden');
+            currentState = STATE.PLAYING;
+
+            if (levelUpQueue > 0) {
+                levelUpQueue--;
+                setTimeout(() => triggerLevelUp(), 100);
+            } else {
+                lastTime = performance.now(); 
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function gameOver() {
+            currentState = STATE.GAME_OVER;
+            hud.classList.add('hidden');
+            gameOverMenu.classList.remove('hidden');
+            document.getElementById('final-time').innerText = formatTime(gameTime);
+            document.getElementById('final-level').innerText = player.level;
+        }
+
+        /**
+         * AUDIO SYSTEM (Simple Web Audio Synth)
+         */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function createAudioPulse(freq, type, duration, vol = 0.1, quantized = false) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            
+            let playTime = audioCtx.currentTime;
+            
+            if (quantized) {
+                const sub = BEAT_DURATION / 4; // Quantize to nearest 16th note
+                const nextSubTime = Math.ceil(gameTime / sub) * sub;
+                const delay = Math.max(0, nextSubTime - gameTime);
+                playTime += delay;
+            }
+
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, playTime);
+                if(type === 'square' || type === 'triangle' || type === 'sawtooth') {
+                    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, playTime + duration);
+                }
+                
+                gain.gain.setValueAtTime(vol, playTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, playTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(playTime);
+                osc.stop(playTime + duration);
+            } catch(e) {} // ignore audio errors on intense scenes
+        }
+
+        /**
+         * MAIN LOOP & RENDERING
+         */
+        function update(dt) {
+            if (currentState !== STATE.PLAYING) return;
+            gameTime += dt;
+            frameCount++;
+            
+            // UI Update Time (every second approx)
+            if(frameCount % 60 === 0) {
+                timeDisplay.innerText = formatTime(gameTime);
+            }
+
+            // Spawn Logic
+            enemySpawnTimer -= dt;
+            // Spawn rate starts faster and scales quicker
+            let currentSpawnRate = Math.max(0.15, 2.5 - (gameTime / 100)); 
+            if (enemySpawnTimer <= 0) {
+                // Spawn more enemies simultaneously as time goes on
+                let amount = 1 + Math.floor(gameTime / 120);
+                for(let i=0; i<amount; i++) spawnEnemy();
+                enemySpawnTimer = currentSpawnRate;
+            }
+
+            player.update(dt);
+            if (currentState !== STATE.PLAYING) return;
+
+            // Camera follow player smoothly
+            camera.x += (player.pos.x - canvas.width / 2 - camera.x) * 0.1;
+            camera.y += (player.pos.y - canvas.height / 2 - camera.y) * 0.1;
+
+            // Entities Update
+            for(let i = enemies.length - 1; i >= 0; i--) enemies[i].update(dt);
+            for(let i = projectiles.length - 1; i >= 0; i--) {
+                projectiles[i].update(dt);
+                if(projectiles[i].life <= 0) projectiles.splice(i, 1);
+            }
+            for(let i = gems.length - 1; i >= 0; i--) {
+                gems[i].update(dt);
+                if(gems[i].life === 0 && !gems[i].collectedOnBeat) gems.splice(i, 1);
+            }
+            for(let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if(particles[i].life <= 0) particles.splice(i, 1);
+            }
+            for(let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].update(dt);
+                if(floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        function drawGrid(ctx) {
+            // Background pulses every whole note (4 beats)
+            const wholeNote = BEAT_DURATION * 4;
+            const beatPhase = (gameTime % wholeNote) / wholeNote;
+            const pulse = Math.pow(1 - beatPhase, 4); // Sharp exponential decay
+            
+            ctx.strokeStyle = `rgba(0, 255, 255, ${0.05 + pulse * 0.03})`;
+            ctx.lineWidth = 2;
+            let gridSize = 100;
+            
+            let offsetX = camera.x % gridSize;
+            let offsetY = camera.y % gridSize;
+
+            ctx.beginPath();
+            for (let x = -offsetX; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+            }
+            for (let y = -offsetY; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+        }
+
+        function draw() {
+            // Clear Background
+            ctx.fillStyle = '#020208';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawGrid(ctx);
+
+            ctx.save();
+            // Center zoom on player
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(cameraZoom, cameraZoom);
+            ctx.translate(-camera.x - canvas.width / 2, -camera.y - canvas.height / 2);
+
+            // Draw Order: Gems -> Particles -> Enemies -> Player -> Projectiles -> Text
+            gems.forEach(g => g.draw(ctx));
+            particles.forEach(p => p.draw(ctx));
+            enemies.forEach(e => e.draw(ctx));
+            player.draw(ctx);
+            projectiles.forEach(p => p.draw(ctx));
+            floatingTexts.forEach(t => t.draw(ctx));
+
+            ctx.restore();
+            
+            // Damage Flash
+            if (player && player.hitFlash > 0) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${player.hitFlash * 0.5})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Screen Vignette
+            let gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.height*0.3, canvas.width/2, canvas.height/2, canvas.height);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function gameLoop(timestamp) {
+            if (currentState !== STATE.PLAYING) return;
+
+            let dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            // Cap delta time to prevent physics glitches if tab is inactive
+            if (dt > 0.1) dt = 0.1;
+
+            update(dt);
+            draw();
+
+            if(currentState === STATE.PLAYING) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Event Listeners for UI
+        startBtn.addEventListener('click', () => showClassSelect());
+        
+        restartBtn.addEventListener('click', () => showClassSelect());
+
+        // Initial draw for background
+        drawGrid(ctx);
+    </script>
+</body>
+</html>
