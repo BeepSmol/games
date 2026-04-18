@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artificial Unintelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper-bg: #fffaf0;
+            --ink-blue: #1a365d;
+            --pencil-gray: #4a5568;
+            --page-border: #cbd5e1;
+            --user-bg: #e2e8f0;
+            --ai-bg: #f8fafc;
+            --bubble-text: #1a1a1a;
+            --accent: #ef4444;
+            --sidebar-bg: #f1f5f9;
+        }
+
+        body.dark-mode {
+            --paper-bg: #1a1c22;
+            --ink-blue: #fcd34d;
+            --pencil-gray: #9ca3af;
+            --page-border: #2d3139;
+            --user-bg: #2d3139;
+            --ai-bg: #111318;
+            --bubble-text: #f3f4f6;
+            --accent: #991b1b;
+            --sidebar-bg: #111318;
+        }
+
+        body {
+            background-color: #cbd5e1;
+            background-image: radial-gradient(var(--page-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: 'Kalam', cursive;
+            color: var(--pencil-gray);
+            transition: background-color 0.5s ease;
+        }
+
+        .notebook-page {
+            background: var(--paper-bg);
+            background-image: linear-gradient(var(--page-border) 2px, transparent 2px);
+            background-size: 100% 1.8rem;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .notebook-page::before {
+            content: '';
+            position: absolute;
+            left: 45px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--accent);
+            opacity: 0.2;
+        }
+
+        body.dark-mode .notebook-page {
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.3), 10px 10px 30px rgba(0,0,0,0.5);
+        }
+
+        body.dark-mode .notebook-page::before {
+            opacity: 0.1;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .sidebar-container {
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--page-border);
+            transition: background 0.3s ease;
+        }
+
+        .marker-font {
+            font-family: 'Permanent Marker', cursive;
+        }
+
+        .tape {
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            transform: rotate(-2deg);
+            color: var(--ink-blue);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--page-border); border-radius: 10px; }
+
+        .chat-bubble {
+            position: relative;
+            max-width: 85%;
+            padding: 12px 18px;
+            margin-bottom: 14px;
+            line-height: 1.4;
+            border-radius: 8px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user-bubble {
+            background: var(--user-bg);
+            color: var(--bubble-text);
+            align-self: flex-end;
+            border: 1px solid var(--page-border);
+            transform: rotate(1deg);
+            border-bottom-right-radius: 2px;
+        }
+
+        .ai-bubble {
+            background: var(--ai-bg);
+            color: var(--bubble-text);
+            align-self: flex-start;
+            border: 1px dashed var(--page-border);
+            transform: rotate(-1deg);
+            border-bottom-left-radius: 2px;
+            margin-left: 12px;
+            box-shadow: -4px 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-item {
+            color: var(--pencil-gray);
+            transition: all 0.2s;
+            cursor: pointer;
+            border-bottom: 1px solid var(--page-border);
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-item:hover {
+            background: var(--user-bg);
+            transform: translateX(5px);
+        }
+
+        .active-chat {
+            background: var(--paper-bg) !important;
+            border-left: 4px solid var(--accent);
+            box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn-nav {
+            font-family: 'Permanent Marker', cursive;
+            padding: 8px 24px;
+            font-size: 1.2rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+            background: var(--sidebar-bg);
+            color: var(--pencil-gray);
+            border: 2px solid var(--page-border);
+            cursor: pointer;
+        }
+        .btn-nav:hover { background: var(--user-bg); }
+        .btn-nav.active {
+            background: var(--ink-blue);
+            color: var(--paper-bg);
+            border-color: var(--ink-blue);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        #game-view {
+            background: var(--paper-bg);
+            display: none; /* Controlled by switchView */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ink-blot {
+            position: absolute;
+            background: var(--ink-blue);
+            filter: blur(20px);
+            border-radius: 50%;
+            opacity: 0.15;
+            z-index: 1;
+            animation: blob-pulse 8s infinite alternate;
+        }
+
+        @keyframes blob-pulse {
+            from { transform: scale(1) translate(0, 0); }
+            to { transform: scale(1.5) translate(20px, -30px); }
+        }
+
+        .todo-list {
+            border: 2px solid var(--page-border);
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            transform: rotate(2deg);
+            max-width: 300px;
+            z-index: 10;
+            box-shadow: 10px 10px 0px var(--page-border);
+        }
+
+        .strike {
+            text-decoration: line-through;
+            opacity: 0.5;
+            font-style: italic;
+        }
+
+        .game-status-text {
+            animation: typewriter 4s steps(40) infinite;
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 2px solid var(--ink-blue);
+        }
+
+        @keyframes typewriter {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden dark-mode">
+    <nav class="flex justify-center gap-4 p-4 z-[3000] relative">
+        <button id="nav-chat" class="btn-nav active" onclick="switchView('chat')">CHAT</button>
+        <button id="nav-game" class="btn-nav" onclick="switchView('game')">GAME</button>
+    </nav>
+
+    <div id="chat-view" class="flex-1 flex overflow-hidden p-2 md:p-6 pt-0 md:pt-0 gap-6">
+        <!-- Left Sidebar: Folders & Memory -->
+    <aside class="w-64 flex-col hidden md:flex gap-4 overflow-hidden sidebar-container p-4">
+        <!-- Brain Stats -->
+        <div class="mb-4">
+            <h2 class="marker-font text-xl mb-3" style="color: var(--ink-blue)">Brain Stats</h2>
+            <div class="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Brain Density</div>
+            <div class="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-3">
+                <div id="density-bar" class="h-full transition-all duration-1000" style="width: 0%; background-color: var(--accent)"></div>
+            </div>
+            <div class="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Neural Map</div>
+            <canvas id="neural-map" class="w-full h-32 rounded border border-gray-300 dark:border-gray-700 bg-white/20 dark:bg-black/20 cursor-pointer" onclick="openNeuralExplorer()"></canvas>
+        </div>
+
+        <!-- Chats Section -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <h2 class="marker-font text-2xl mb-4 border-b-2 border-gray-400 pb-2" style="color: var(--ink-blue)">The Archives</h2>
+            <div id="chat-list" class="flex-1 overflow-y-auto pr-2">
+                <!-- Chat list items injected here -->
+            </div>
+            <button id="new-chat-btn" class="mt-4 w-full py-3 border-2 border-dashed border-gray-400 hover:border-gray-600 transition-colors font-bold uppercase tracking-widest text-xs">
+                + Scribble New Chat
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 flex flex-col notebook-page relative overflow-hidden">
+        <!-- Header -->
+        <header class="p-6 pt-8 flex justify-between items-start z-10">
+            <div>
+                <h1 class="marker-font text-4xl rotate-[-1deg]" style="color: var(--ink-blue)">Artificial Unintelligence</h1>
+                <p class="text-sm italic text-gray-500 ml-1">Studying your handwriting...</p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <button id="dark-toggle" class="tape px-4 py-1 text-[10px] font-black uppercase tracking-tighter">
+                    🌓 Toggle Lights
+                </button>
+                 <button id="wipe-btn" class="px-4 py-1 text-[10px] font-black uppercase tracking-tighter text-red-500 border border-red-500/20 rounded hover:bg-red-500/10 transition-colors">
+                    Burn Notebook
+                </button>
+            </div>
+        </header>
+
+        <!-- Messages Area -->
+        <div id="chat-container" class="flex-1 overflow-y-auto overflow-x-hidden px-10 py-4 flex flex-col space-y-2">
+            <!-- Messages go here -->
+        </div>
+
+        <!-- Typing -->
+        <div id="typing-indicator" class="hidden px-16 py-2 text-xs italic text-gray-400 animate-pulse">
+            * Chewing on a pencil... *
+        </div>
+
+        <!-- Input -->
+        <footer class="p-6 relative">
+            <div class="absolute top-0 left-10 right-10 border-t-2 border-dotted border-gray-400 opacity-50"></div>
+            <form id="chat-form" class="flex gap-4 mt-2">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    placeholder="Start writing here..."
+                    class="flex-1 bg-transparent border-none focus:ring-0 text-xl placeholder-gray-300 outline-none"
+                    autocomplete="off"
+                >
+                <button type="submit" class="marker-font text-white px-8 py-2 rounded-sm shadow-xl transition-transform active:scale-95 rotate-[1deg]" style="background-color: var(--ink-blue)">
+                    POST
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <!-- Game View (Redesigned Construction) -->
+    <div id="game-view" class="flex-1 notebook-page m-2 md:m-6 mt-0 md:mt-0 p-8">
+        <div class="ink-blot w-64 h-64 top-[-50px] left-[-50px]"></div>
+        <div class="ink-blot w-96 h-96 bottom-[-100px] right-[-100px]" style="animation-delay: -2s;"></div>
+
+        <div class="relative z-10 flex flex-col items-center gap-8">
+            <h1 class="marker-font text-5xl md:text-7xl text-center rotate-[-2deg]" style="color: var(--ink-blue)">
+                Im sharpening my pencil leave me in peace
+            </h1>
+            
+            <div class="todo-list">
+                <h3 class="font-bold border-b border-gray-400 mb-2 uppercase text-xs tracking-widest">To-Do List</h3>
+                <ul class="text-lg space-y-2">
+                    <li class="strike">✓ Learn how to count to 3</li>
+                    <li class="strike">✓ start making th game</li>
+                    <li>☐ Teach the AI how to play tag</li>
+                    <li>☐ Stop eating the pencils (mmm... pencils)</li>
+                </ul>
+            </div>
+
+            <p class="game-status-text font-mono text-sm opacity-70">
+                &gt; Status: Idk
+            </p>
+        </div>
+    </div>
+
+    <!-- Neural Explorer Modal -->
+    <div id="map-modal" class="fixed inset-0 z-[4000] hidden bg-black/90 backdrop-blur-md flex flex-col p-4 md:p-10" onclick="if(event.target === this) closeNeuralExplorer()">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="marker-font text-3xl md:text-5xl text-yellow-400 rotate-[-1deg]">Synaptic Explorer</h2>
+            <button onclick="closeNeuralExplorer()" class="text-white text-5xl hover:text-red-500 transition-colors">&times;</button>
+        </div>
+        <div class="flex-1 relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing" id="map-modal-content">
+            <canvas id="expanded-map" class="w-full h-full"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- Persistence Keys ---
+        const DB_CHATS = 'au_v2_chats';
+        const DB_MARKOV = 'au_v2_markov';
+        const DB_CURRENT_ID = 'au_v2_current_chat';
+        const DB_DARK = 'au_v2_darkmode';
+
+        // --- State ---
+        let chats = JSON.parse(localStorage.getItem(DB_CHATS)) || [];
+        let markovModel = JSON.parse(localStorage.getItem(DB_MARKOV)) || {};
+        let currentChatId = localStorage.getItem(DB_CURRENT_ID) || null;
+        let isDarkMode = localStorage.getItem(DB_DARK) !== 'false';
+
+        // --- DOM Elements ---
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const chatList = document.getElementById('chat-list');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const wipeBtn = document.getElementById('wipe-btn');
+        const darkToggle = document.getElementById('dark-toggle');
+
+        const mapModal = document.getElementById('map-modal');
+        const expandedCanvas = document.getElementById('expanded-map');
+        const ectx = expandedCanvas.getContext('2d');
+
+        // --- Panning State ---
+        let panX = 0;
+        let panY = 0;
+        let isDraggingMap = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // --- Initialize ---
+        function init() {
+            if (!isDarkMode) document.body.classList.remove('dark-mode');
+            
+            if (chats.length === 0) {
+                createNewChat();
+            } else if (!currentChatId) {
+                currentChatId = chats[0].id;
+            }
+
+            renderSidebar();
+            renderChat();
+            updateBrainDensity();
+
+            // Setup Map Dragging
+            expandedCanvas.onmousedown = (e) => {
+                isDraggingMap = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            };
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingMap && isMapExpanded) {
+                    panX += e.clientX - lastMouseX;
+                    panY += e.clientY - lastMouseY;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                }
+            });
+            window.addEventListener('mouseup', () => {
+                isDraggingMap = false;
+            });
+
+            animateNeuralMap();
+        }
+
+        // --- Chat Management ---
+        function createNewChat() {
+            const id = 'chat_' + Date.now();
+            const newChat = {
+                id: id,
+                title: 'New Scribble',
+                messages: [],
+                threshold: Math.floor(Math.random() * 4) + 1 // 1-4 message silence period
+            };
+            chats.unshift(newChat);
+            currentChatId = id;
+            save();
+            renderSidebar();
+            renderChat();
+        }
+
+        function deleteChat(id, event) {
+            event.stopPropagation();
+            if (!confirm("Rip this page out of the notebook?")) return;
+            chats = chats.filter(c => c.id !== id);
+            if (chats.length === 0) {
+                createNewChat();
+            } else if (currentChatId === id) {
+                currentChatId = chats[0].id;
+            }
+            save();
+            renderSidebar();
+            renderChat();
+        }
+
+        function switchChat(id) {
+            currentChatId = id;
+            save();
+            renderSidebar();
+            renderChat();
+        }
+
+        function save() {
+            localStorage.setItem(DB_CHATS, JSON.stringify(chats));
+            localStorage.setItem(DB_MARKOV, JSON.stringify(markovModel));
+            localStorage.setItem(DB_CURRENT_ID, currentChatId);
+        }
+
+        // --- The "Algorithm" ---
+        function trainAI(text) {
+            const words = text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+            
+            updateBrainDensity();
+
+            if (words.length < 3) {
+                for (let i = 0; i < words.length - 1; i++) {
+                    const key = words[i];
+                    if (!markovModel[key]) markovModel[key] = [];
+                    markovModel[key].push(words[i+1]);
+                }
+                return;
+            }
+            for (let i = 0; i < words.length - 2; i++) {
+                const trigramKey = words[i] + " " + words[i+1];
+                const bigramKey = words[i];
+                const next = words[i+2];
+                
+                if (!markovModel[trigramKey]) markovModel[trigramKey] = [];
+                markovModel[trigramKey].push(next);
+                
+                if (!markovModel[bigramKey]) markovModel[bigramKey] = [];
+                markovModel[bigramKey].push(words[i+1]);
+            }
+        }
+
+        function generateResponse(seedText = "", retryCount = 0) {
+            const inputWords = seedText.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+            let currentKey = "";
+            
+            // Try to use input keywords, but if we are retrying (to avoid copying), pick randomly
+            if (inputWords.length >= 2 && retryCount === 0) {
+                const randIdx = Math.floor(Math.random() * (inputWords.length - 1));
+                const target = inputWords[randIdx] + " " + inputWords[randIdx+1];
+                if (markovModel[target]) currentKey = target;
+            }
+            
+            if (!currentKey && inputWords.length >= 1 && retryCount === 0) {
+                const target = inputWords[Math.floor(Math.random() * inputWords.length)];
+                if (markovModel[target]) currentKey = target;
+            }
+
+            // If retryCount > 0, we explicitly ignore input words to break a parrot loop
+            if (retryCount > 2) {
+                currentKey = ""; 
+            }
+
+            if (!currentKey) {
+                const keys = Object.keys(markovModel);
+                currentKey = keys[Math.floor(Math.random() * keys.length)];
+            }
+
+            let result = currentKey.split(" ");
+            const maxWords = 10 + Math.floor(Math.random() * 15);
+            
+            for (let i = 0; i < maxWords; i++) {
+                let lookup = "";
+                if (result.length >= 2) {
+                    lookup = result[result.length-2] + " " + result[result.length-1];
+                } else {
+                    lookup = result[result.length-1];
+                }
+                
+                const choices = markovModel[lookup] || markovModel[result[result.length-1]];
+                if (!choices || choices.length === 0) break;
+                result.push(choices[Math.floor(Math.random() * choices.length)]);
+            }
+            
+            let sentence = result.join(' ');
+            
+            // Anti-Copy Logic: If response is identical to input or a large chunk of it, try again
+            const cleanInput = seedText.toLowerCase().trim();
+            const cleanOutput = sentence.toLowerCase().trim();
+            
+            if (retryCount < 5 && (cleanInput.includes(cleanOutput) || cleanOutput.includes(cleanInput)) && cleanOutput.length > 3) {
+                return generateResponse(seedText, retryCount + 1);
+            }
+
+            const endings = ['.', '...', '!', '?'];
+            return sentence.charAt(0).toUpperCase() + sentence.slice(1) + endings[Math.floor(Math.random() * endings.length)];
+        }
+
+        // --- Brain Visualization ---
+        function updateBrainDensity() {
+            const keys = Object.keys(markovModel).length;
+            const bar = document.getElementById('density-bar');
+            // Logarithmic feel: 1000 keys is "Full" for a notebook brain
+            const percent = Math.min(100, Math.floor((keys / 1000) * 100));
+            bar.style.width = percent + '%';
+        }
+
+        const mapCanvas = document.getElementById('neural-map');
+        const mctx = mapCanvas.getContext('2d');
+        let mapNodes = [];
+        let expandedNodes = [];
+        let isMapExpanded = false;
+
+        function openNeuralExplorer() {
+            isMapExpanded = true;
+            panX = 0;
+            panY = 0;
+            mapModal.classList.remove('hidden');
+            resizeExpandedCanvas();
+            // Pre-populate with more nodes for the big view
+            initNodes(expandedNodes, 80, expandedCanvas, true);
+        }
+
+        function closeNeuralExplorer() {
+            isMapExpanded = false;
+            mapModal.classList.add('hidden');
+        }
+
+        function resizeExpandedCanvas() {
+            expandedCanvas.width = expandedCanvas.clientWidth;
+            expandedCanvas.height = expandedCanvas.clientHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            if (isMapExpanded) resizeExpandedCanvas();
+        });
+
+        function animateNeuralMap() {
+            mctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+            
+            const inkColor = getComputedStyle(document.body).getPropertyValue('--ink-blue');
+            const pencilColor = getComputedStyle(document.body).getPropertyValue('--pencil-gray');
+            
+            mctx.lineWidth = 0.5;
+
+            // Occasionally pick a new set of words to visualize from the model
+            if (mapNodes.length === 0 || Math.random() < 0.01) {
+                const keys = Object.keys(markovModel);
+                mapNodes = [];
+                for(let i=0; i<Math.min(8, keys.length); i++) {
+                    initNodes(mapNodes, 8, mapCanvas, false);
+                }
+            }
+
+            drawMap(mctx, mapNodes, mapCanvas, inkColor, pencilColor, false);
+
+            if (isMapExpanded) {
+                ectx.clearRect(0, 0, expandedCanvas.width, expandedCanvas.height);
+                drawMap(ectx, expandedNodes, expandedCanvas, "#fbbf24", "#ffffff", true);
+            }
+
+            requestAnimationFrame(animateNeuralMap);
+        }
+
+        function getSuccessors(key) {
+            const words = key.split(' ');
+            const targets = markovModel[key] || [];
+            return targets.map(t => words.length > 1 ? words[1] + " " + t : t).filter(k => markovModel[k]);
+        }
+
+        function initNodes(nodeArray, count, canvas, buildWeb = false) {
+            const keys = Object.keys(markovModel);
+            if (keys.length === 0) return;
+            
+            nodeArray.length = 0;
+            const currentSet = new Set();
+
+            if (buildWeb) {
+                let iterations = 0;
+                while(currentSet.size < count && iterations < 100) {
+                    let seed = keys[Math.floor(Math.random() * keys.length)];
+                    if (!currentSet.has(seed)) {
+                        currentSet.add(seed);
+                        getSuccessors(seed).forEach(s => { if(currentSet.size < count) currentSet.add(s); });
+                    }
+                    iterations++;
+                }
+            } else {
+                for(let i=0; i<Math.min(count, keys.length); i++) {
+                    currentSet.add(keys[Math.floor(Math.random() * keys.length)]);
+                }
+            }
+            
+            const selectedKeys = Array.from(currentSet);
+            selectedKeys.forEach(key => {
+                const range = buildWeb ? 2000 : canvas.width;
+                const offset = buildWeb ? 1000 : 0;
+
+                nodeArray.push({
+                    word: key,
+                    x: Math.random() * range - offset,
+                    y: Math.random() * range - offset,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    links: []
+                });
+            });
+
+            if (buildWeb) {
+                nodeArray.forEach((node, i) => {
+                    getSuccessors(node.word).forEach(s => {
+                        let targetIdx = nodeArray.findIndex(n => n.word === s);
+                        if (targetIdx !== -1 && targetIdx !== i) node.links.push(targetIdx);
+                    });
+                });
+            }
+        }
+
+        function drawMap(ctx, nodes, canvas, color, textColor, showLabels) {
+            ctx.save();
+            if (showLabels) ctx.translate(panX, panY);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+
+            nodes.forEach((node, i) => {
+                node.x += node.vx;
+                node.y += node.vy;
+
+                const limit = showLabels ? 1000 : canvas.width;
+                if (node.x < (showLabels ? -limit : 0) || node.x > limit) node.vx *= -1;
+                if (node.y < (showLabels ? -limit : 0) || node.y > limit) node.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, showLabels ? 4 : 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (showLabels) {
+                    ctx.save();
+                    ctx.fillStyle = textColor;
+                    ctx.font = '12px Kalam';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowColor = 'black';
+                    ctx.fillText(node.word, node.x + 8, node.y + 4);
+                    ctx.restore();
+
+                    node.links.forEach(linkIdx => {
+                        const target = nodes[linkIdx];
+                        ctx.beginPath();
+                        ctx.moveTo(node.x, node.y);
+                        ctx.lineTo(target.x, target.y);
+                        ctx.strokeStyle = color;
+                        ctx.globalAlpha = 0.3;
+                        ctx.stroke();
+                        ctx.globalAlpha = 1.0;
+                    });
+                } else {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        const other = nodes[j];
+                        const dist = Math.hypot(node.x - other.x, node.y - other.y);
+                        if (dist < 60) {
+                            ctx.globalAlpha = 1 - (dist / 60);
+                            ctx.beginPath();
+                            ctx.moveTo(node.x, node.y);
+                            ctx.lineTo(other.x, other.y);
+                            ctx.stroke();
+                            ctx.globalAlpha = 1;
+                        }
+                    }
+                }
+            });
+            ctx.restore();
+        }
+
+        // --- Rendering ---
+        function renderSidebar() {
+            chatList.innerHTML = '';
+            chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = `sidebar-item p-3 text-sm flex justify-between items-center ${chat.id === currentChatId ? 'active-chat font-bold' : ''}`;
+                item.innerHTML = `
+                    <div class="flex-1 truncate" onclick="switchChat('${chat.id}')">
+                        <div class="truncate">${chat.title}</div>
+                        <div class="text-[10px] opacity-50">${new Date(parseInt(chat.id.split('_')[1])).toLocaleDateString()}</div>
+                    </div>
+                    <button class="ml-2 text-gray-400 hover:text-red-500 p-1 text-xl leading-none" onclick="deleteChat('${chat.id}', event)">
+                        &times;
+                    </button>
+                `;
+                chatList.appendChild(item);
+            });
+        }
+
+        function renderChat() {
+            const chat = chats.find(c => c.id === currentChatId);
+            chatContainer.innerHTML = '';
+            if (!chat) return;
+
+            chat.messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `chat-bubble ${msg.sender === 'user' ? 'user-bubble' : 'ai-bubble'}`;
+                div.textContent = msg.text;
+                chatContainer.appendChild(div);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // --- The "Logic" ---
+        function getAIResponse(input) {
+            const text = input.toLowerCase().trim();
+            
+            trainAI(input); // Learn from user
+
+            // Update chat title if it's the first real message
+            const currentChat = chats.find(c => c.id === currentChatId);
+            if (currentChat && currentChat.title === 'New Scribble' && currentChat.messages.length < 4) {
+                currentChat.title = input.substring(0, 15) + (input.length > 15 ? '...' : '');
+                renderSidebar();
+            }
+
+            // Silence Period Check
+            const userMessageCount = currentChat.messages.filter(m => m.sender === 'user').length;
+            if (userMessageCount <= (currentChat.threshold || 2)) {
+                const silenceOptions = ["Ok.", "...", "Ok", "Got it.", "Writing it down."];
+                return silenceOptions[Math.floor(Math.random() * silenceOptions.length)];
+            }
+
+            // Pure Generative response based on "Thinking"
+            return generateResponse(input);
+        }
+
+        // --- Events ---
+        chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            const val = userInput.value.trim();
+            if (!val) return;
+
+            const chat = chats.find(c => c.id === currentChatId);
+            chat.messages.push({ sender: 'user', text: val });
+            userInput.value = '';
+            renderChat();
+            save();
+
+            typingIndicator.classList.remove('hidden');
+            setTimeout(() => {
+                typingIndicator.classList.add('hidden');
+                const reply = getAIResponse(val);
+                chat.messages.push({ sender: 'ai', text: reply });
+                renderChat();
+                save();
+            }, 800 + Math.random() * 1000);
+        };
+
+        function switchView(view) {
+            const chatView = document.getElementById('chat-view');
+            const gameView = document.getElementById('game-view');
+            const navChat = document.getElementById('nav-chat');
+            const navGame = document.getElementById('nav-game');
+
+            if (view === 'chat') {
+                chatView.style.display = 'flex';
+                gameView.style.display = 'none';
+                navChat.classList.add('active');
+                navGame.classList.remove('active');
+            } else {
+                chatView.style.display = 'none';
+                gameView.style.display = 'flex';
+                navChat.classList.remove('active');
+                navGame.classList.add('active');
+            }
+        }
+
+        newChatBtn.onclick = createNewChat;
+
+        darkToggle.onclick = () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem(DB_DARK, isDarkMode);
+        };
+
+        wipeBtn.onclick = () => {
+            if (confirm("Burn the whole notebook? This deletes ALL chats and memories!")) {
+                localStorage.clear();
+                location.reload();
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
