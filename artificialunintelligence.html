@@ -136,6 +136,16 @@
             user-select: none;
         }
 
+        .btn-utility {
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.025em;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
         .inventory-item {
             font-size: 0.9rem;
             padding: 4px 8px;
@@ -332,6 +342,14 @@
                 <button id="dark-toggle" class="tape px-4 py-1 text-[10px] font-black uppercase tracking-tighter">
                     🌓 Toggle Lights
                 </button>
+                <div class="flex gap-2">
+                    <button onclick="exportData()" class="btn-utility border border-blue-500/20 text-blue-500 hover:bg-blue-500/10">
+                        Export Brain
+                    </button>
+                    <button onclick="importData()" class="btn-utility border border-green-500/20 text-green-500 hover:bg-green-500/10">
+                        Import Brain
+                    </button>
+                </div>
                  <button id="wipe-btn" class="px-4 py-1 text-[10px] font-black uppercase tracking-tighter text-red-500 border border-red-500/20 rounded hover:bg-red-500/10 transition-colors">
                     Burn Notebook
                 </button>
@@ -613,6 +631,51 @@
             localStorage.setItem(DB_CURRENT_ID, currentChatId);
             localStorage.setItem(DB_INVENTORY, JSON.stringify(Array.from(neuralInventory)));
             localStorage.setItem(DB_MSG_COUNT, userMessageCount);
+        }
+
+        function exportData() {
+            const data = {
+                chats,
+                markovModel,
+                currentChatId,
+                isDarkMode,
+                neuralInventory: Array.from(neuralInventory),
+                userMessageCount
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `au_brain_export_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const imported = JSON.parse(event.target.result);
+                        if (!imported.markovModel || !imported.chats) throw new Error("Invalid notebook brain file.");
+                        if (confirm("Importing will overwrite your current notebook. Proceed?")) {
+                            localStorage.setItem(DB_CHATS, JSON.stringify(imported.chats));
+                            localStorage.setItem(DB_MARKOV, JSON.stringify(imported.markovModel));
+                            localStorage.setItem(DB_CURRENT_ID, imported.currentChatId || '');
+                            localStorage.setItem(DB_DARK, imported.isDarkMode ?? true);
+                            localStorage.setItem(DB_INVENTORY, JSON.stringify(imported.neuralInventory || []));
+                            localStorage.setItem(DB_MSG_COUNT, imported.userMessageCount || 0);
+                            location.reload();
+                        }
+                    } catch (err) { alert("Import failed: " + err.message); }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         // --- Internal Thinking Logic ---
