@@ -296,6 +296,41 @@
             opacity: 0;
             transition: opacity 0.3s;
         }
+
+        /* Settings Modal Overlay */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 5000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: var(--paper-bg);
+            border: 2px solid var(--page-border);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 15px 15px 40px rgba(0, 0, 0, 0.4);
+            color: var(--pencil-gray);
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden dark-mode">
@@ -339,26 +374,9 @@
                 <h1 class="marker-font text-4xl rotate-[-1deg]" style="color: var(--ink-blue)">Artificial Stupidity</h1>
                 <p class="text-sm italic text-gray-500 ml-1">Yum</p>
             </div>
-            <div class="flex flex-col items-end gap-2">
-                <div class="flex gap-2">
-                    <label class="tape px-3 py-1 text-[10px] font-black uppercase tracking-tighter cursor-pointer flex items-center gap-1">
-                        <input type="checkbox" id="deep-think-toggle" class="w-3 h-3 accent-red-500">
-                        🧠 Deep Thinking
-                    </label>
-                    <button id="dark-toggle" class="tape px-4 py-1 text-[10px] font-black uppercase tracking-tighter">
-                        🌓 Toggle Lights
-                    </button>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="exportData()" class="btn-utility border border-blue-500/20 text-blue-500 hover:bg-blue-500/10">
-                        Export Brain
-                    </button>
-                    <button onclick="importData()" class="btn-utility border border-green-500/20 text-green-500 hover:bg-green-500/10">
-                        Import Brain
-                    </button>
-                </div>
-                 <button id="wipe-btn" class="px-4 py-1 text-[10px] font-black uppercase tracking-tighter text-red-500 border border-red-500/20 rounded hover:bg-red-500/10 transition-colors">
-                    Burn Notebook
+            <div class="flex gap-2">
+                <button id="settings-btn" class="tape px-4 py-1 text-[10px] font-black uppercase tracking-tighter" onclick="openSettings()">
+                    ⚙️ Brain Settings
                 </button>
             </div>
         </header>
@@ -463,6 +481,64 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content border-gray-400 max-w-xl">
+            <h2 class="marker-font text-3xl mb-4" style="color: var(--ink-blue)">Brain Configuration</h2>
+            
+            <div class="space-y-4 mb-6">
+                <!-- Theme & Data -->
+                <div class="flex flex-wrap gap-2 pb-4 border-b border-gray-300">
+                    <button id="dark-toggle-modal" class="btn-utility border border-gray-500 text-gray-500 hover:bg-gray-500/10">🌓 Toggle Lights</button>
+                    <button onclick="exportData()" class="btn-utility border border-blue-500/20 text-blue-500 hover:bg-blue-500/10">Export Brain</button>
+                    <button onclick="importData()" class="btn-utility border border-green-500/20 text-green-500 hover:bg-green-500/10">Import Brain</button>
+                    <button id="wipe-btn-modal" class="btn-utility border border-red-500/20 text-red-500 hover:bg-red-500/10">Burn Notebook</button>
+                </div>
+
+                <!-- Sliders -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Response Speed (<span id="speed-val">1</span>s)</label>
+                        <input type="range" id="setting-speed" min="0" max="60" step="1" class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                        <p class="text-[10px] opacity-60">Slow speed = Deep thoughts</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Filter Intensity</label>
+                        <input type="range" id="setting-filter" min="0" max="1" step="0.1" class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Coherence</label>
+                        <input type="range" id="setting-coherence" min="0" max="1" step="0.1" class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Word Bias (Old vs New)</label>
+                        <input type="range" id="setting-bias" min="0" max="1" step="0.1" class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Word Lists -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Blacklist (CSV)</label>
+                        <textarea id="setting-blacklist" class="w-full h-20 p-2 text-sm bg-black/5 border border-page-border rounded outline-none font-sans" placeholder="boredom, math, etc"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase block mb-1">Obsessed Words (CSV)</label>
+                        <textarea id="setting-obsessed" class="w-full h-20 p-2 text-sm bg-black/5 border border-page-border rounded outline-none font-sans" placeholder="stupid, yum, etc"></textarea>
+                    </div>
+                </div>
+
+                <!-- Cleanup Toggle -->
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="setting-cleanup" class="w-4 h-4 accent-red-500">
+                    <label for="setting-cleanup" class="text-xs font-bold uppercase">Auto-Cleanup (Delete unused words)</label>
+                </div>
+            </div>
+
+            <button onclick="closeSettings()" class="marker-font text-white px-8 py-2 rounded-sm shadow-xl w-full" style="background-color: var(--ink-blue)">SAVE & CLOSE</button>
+        </div>
+    </div>
+
     <!-- Neural Explorer Modal -->
     <div id="map-modal" class="fixed inset-0 z-[4000] hidden bg-black/90 backdrop-blur-md flex flex-col p-4 md:p-10" onclick="if(event.target === this) closeNeuralExplorer()">
         <div class="flex justify-between items-center mb-6">
@@ -482,6 +558,8 @@
         const DB_DARK = 'au_v2_darkmode';
         const DB_INVENTORY = 'au_v2_inventory';
         const DB_MSG_COUNT = 'au_v2_msg_count';
+        const DB_SETTINGS = 'au_v2_settings';
+        const DB_WORD_USAGE = 'au_v2_word_usage';
 
         // --- State ---
         let chats = JSON.parse(localStorage.getItem(DB_CHATS)) || [];
@@ -490,6 +568,19 @@
         let isDarkMode = localStorage.getItem(DB_DARK) !== 'false';
         let neuralInventory = new Set(JSON.parse(localStorage.getItem(DB_INVENTORY)) || []);
         let userMessageCount = parseInt(localStorage.getItem(DB_MSG_COUNT)) || 0;
+        let wordLastUsed = JSON.parse(localStorage.getItem(DB_WORD_USAGE)) || {};
+
+        let defaultSettings = {
+            filterIntensity: 0.5,
+            coherence: 0.8,
+            wordBias: 0.5,
+            blacklist: "",
+            obsessed: "",
+            autoCleanup: false,
+            responseSpeed: 1
+        };
+        let settings = JSON.parse(localStorage.getItem(DB_SETTINGS)) || defaultSettings;
+        settings = { ...defaultSettings, ...settings };
 
         // --- Game & Think State ---
         let isBrainstorming = false;
@@ -502,6 +593,7 @@
         let isThinkViewActive = false;
         let lastThinkTime = 0;
         let lastInternalThought = "";
+        let pendingAIResponses = 0;
         
         // Neural Alchemy State
         let draggedNode = null;
@@ -519,8 +611,6 @@
         const typingIndicator = document.getElementById('typing-indicator');
         const chatList = document.getElementById('chat-list');
         const newChatBtn = document.getElementById('new-chat-btn');
-        const wipeBtn = document.getElementById('wipe-btn');
-        const darkToggle = document.getElementById('dark-toggle');
 
         const thinkLog = document.getElementById('think-log');
         const permLearning = document.getElementById('permanent-learning-toggle');
@@ -558,6 +648,23 @@
             renderNeuralInventory();
             updateBrainDensity();
 
+            // Setup Settings Inputs
+            const speedInput = document.getElementById('setting-speed');
+            speedInput.value = settings.responseSpeed;
+            document.getElementById('speed-val').innerText = settings.responseSpeed;
+            speedInput.oninput = (e) => document.getElementById('speed-val').innerText = e.target.value;
+            
+            document.getElementById('setting-filter').value = settings.filterIntensity;
+            document.getElementById('setting-coherence').value = settings.coherence;
+            document.getElementById('setting-bias').value = settings.wordBias;
+            document.getElementById('setting-blacklist').value = settings.blacklist;
+            document.getElementById('setting-obsessed').value = settings.obsessed;
+            document.getElementById('setting-cleanup').checked = settings.autoCleanup;
+
+            // Setup UI Events
+            document.getElementById('dark-toggle-modal').onclick = toggleDarkMode;
+            document.getElementById('wipe-btn-modal').onclick = burnNotebook;
+
             // Setup Map Dragging
             expandedCanvas.onmousedown = (e) => {
                 isDraggingMap = true;
@@ -593,6 +700,37 @@
                     }
                 }
             }, 5000);
+        }
+
+        // --- Settings Management ---
+        function openSettings() {
+            document.getElementById('settings-modal').classList.add('active');
+        }
+
+        function closeSettings() {
+            settings.responseSpeed = parseInt(document.getElementById('setting-speed').value);
+            settings.filterIntensity = parseFloat(document.getElementById('setting-filter').value);
+            settings.coherence = parseFloat(document.getElementById('setting-coherence').value);
+            settings.wordBias = parseFloat(document.getElementById('setting-bias').value);
+            settings.blacklist = document.getElementById('setting-blacklist').value;
+            settings.obsessed = document.getElementById('setting-obsessed').value;
+            settings.autoCleanup = document.getElementById('setting-cleanup').checked;
+            
+            save();
+            document.getElementById('settings-modal').classList.remove('active');
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            localStorage.setItem(DB_DARK, isDarkMode);
+        }
+
+        function burnNotebook() {
+            if (confirm("Burn the whole notebook? This deletes ALL chats and memories!")) {
+                localStorage.clear();
+                location.reload();
+            }
         }
 
         // --- Chat Management ---
@@ -638,6 +776,18 @@
             localStorage.setItem(DB_CURRENT_ID, currentChatId);
             localStorage.setItem(DB_INVENTORY, JSON.stringify(Array.from(neuralInventory)));
             localStorage.setItem(DB_MSG_COUNT, userMessageCount);
+            localStorage.setItem(DB_SETTINGS, JSON.stringify(settings));
+            localStorage.setItem(DB_WORD_USAGE, JSON.stringify(wordLastUsed));
+        }
+
+        // Optimized non-blocking save
+        let saveTimeout = null;
+        function debouncedSave() {
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                save();
+                saveTimeout = null;
+            }, 1500);
         }
 
         function exportData() {
@@ -716,10 +866,9 @@
             lastInternalThought = rawThought;
             
             // 1. Recursive Learning
-            // Check which toggle to use based on which mode is active
             if (isThinkViewActive && permLearning.checked) {
                 trainAI(thought);
-            }
+            } else { updateBrainDensityDebounced(); }
 
             // 2. Update Think View
             if (isThinkViewActive) {
@@ -731,11 +880,19 @@
             }
         }
 
+        let inventoryTimeout = null;
         function renderNeuralInventory() {
+            if (inventoryTimeout) clearTimeout(inventoryTimeout);
+            inventoryTimeout = setTimeout(() => {
+                performInventoryRender();
+                inventoryTimeout = null;
+            }, 500);
+        }
+
+        function performInventoryRender() {
             const container = document.getElementById('neural-inventory');
             const sortMode = document.getElementById('inventory-sort-mode')?.value || 'az';
             container.innerHTML = '';
-
             let items = Array.from(neuralInventory);
             
             if (sortMode === 'az') {
@@ -893,17 +1050,21 @@
         function trainAI(text) {
             const words = text.split(/\s+/).filter(w => w.length > 0);
             
-            updateBrainDensity();
+            if (settings.autoCleanup) cleanupOldWords();
+            updateBrainDensityDebounced();
 
             if (words.length < 3) {
                 for (let i = 0; i < words.length - 1; i++) {
-                    const key = words[i];
+                    const w = words[i];
+                    wordLastUsed[w.toLowerCase()] = Date.now();
+                    const key = w;
                     if (!markovModel[key]) markovModel[key] = [];
                     markovModel[key].push(words[i+1]);
                 }
                 return;
             }
             for (let i = 0; i < words.length - 2; i++) {
+                wordLastUsed[words[i].toLowerCase()] = Date.now();
                 const trigramKey = words[i] + " " + words[i+1];
                 const bigramKey = words[i];
                 const next = words[i+2];
@@ -914,6 +1075,22 @@
                 if (!markovModel[bigramKey]) markovModel[bigramKey] = [];
                 markovModel[bigramKey].push(words[i+1]);
             }
+        }
+
+        function cleanupOldWords() {
+            const now = Date.now();
+            const maxAge = 1000 * 60 * 60 * 24; // 24 hours
+            
+            Object.keys(wordLastUsed).forEach(word => {
+                if (now - wordLastUsed[word] > maxAge) {
+                    Object.keys(markovModel).forEach(key => {
+                        if (key.includes(word)) delete markovModel[key];
+                        else markovModel[key] = markovModel[key].filter(w => w.toLowerCase() !== word);
+                    });
+                    delete wordLastUsed[word];
+                    neuralInventory.delete(word);
+                }
+            });
         }
 
         function generateResponse(seedText = "", retryCount = 0) {
@@ -951,18 +1128,20 @@
                 currentKey = keys[Math.floor(Math.random() * keys.length)];
             }
 
-            const isDeep = document.getElementById('deep-think-toggle')?.checked || false;
+            const speed = settings.responseSpeed;
+            const speedFactor = speed / 60;
+            const isDeep = speed > 30; // Consider it 'Deep Thinking' if speed is over 30s
             let result = currentKey.split(" ");
-            const maxWords = isDeep ? (25 + Math.floor(Math.random() * 40)) : (10 + Math.floor(Math.random() * 15));
+            const maxWords = Math.floor((10 + speedFactor * 40) + (15 + speedFactor * 45) * Math.random());
             
             for (let i = 0; i < maxWords; i++) {
-                if (isDeep && Math.random() < 0.1) { // 10% chance to jump to an entirely different train of thought
+                if (speed > 40 && Math.random() < 0.1) { // High latency triggers thematic jumping
                     const keys = Object.keys(markovModel);
                     result.push(keys[Math.floor(Math.random() * keys.length)].split(' ')[0]);
                     continue;
                 }
                 let lookup = "";
-                if (result.length >= 2) {
+                if (result.length >= 2 && Math.random() < settings.coherence) {
                     lookup = result[result.length-2] + " " + result[result.length-1];
                 } else {
                     lookup = result[result.length-1];
@@ -977,11 +1156,43 @@
                 }
 
                 if (!choices || choices.length === 0) break;
-                result.push(choices[Math.floor(Math.random() * choices.length)]);
+
+                const nextWord = selectFromChoices(choices);
+                result.push(nextWord);
+                wordLastUsed[nextWord.toLowerCase()] = Date.now();
+            }
+
+            function selectFromChoices(choices) {
+                const blacklist = (settings.blacklist || "").toLowerCase().split(',').map(w => w.trim()).filter(w => w);
+                const obsessed = (settings.obsessed || "").toLowerCase().split(',').map(w => w.trim()).filter(w => w);
+                const intensity = settings.filterIntensity;
+
+                let weighted = choices.map((word, index) => {
+                    const lower = word.toLowerCase();
+                    if (blacklist.includes(lower)) return null;
+                    if (intensity > 0.8 && word.length < 3) return null;
+
+                    let w = 1.0;
+                    if (obsessed.includes(lower)) w *= 10.0;
+                    const pos = index / choices.length;
+                    w *= (1 + pos * (settings.wordBias - 0.5) * 2);
+                    return { word, weight: Math.max(0.01, w) };
+                }).filter(n => n);
+
+                if (weighted.length === 0) return choices[Math.floor(Math.random() * choices.length)];
+                const total = weighted.reduce((s, i) => s + i.weight, 0);
+                let r = Math.random() * total;
+                for (const i of weighted) { r -= i.weight; if (r <= 0) return i.word; }
+                return weighted[0].word;
             }
             
             const sentence = result.join(' ');
             
+            // Final fallback to prevent empty replies if all logic fails
+            if (!sentence || sentence.length < 2) {
+                return retryCount < 3 ? generateResponse(seedText, retryCount + 1) : "...huh.";
+            }
+
             // Anti-Copy Logic: If response is identical to input or a large chunk of it, try again
             const cleanInput = seedText.toLowerCase().trim();
             const cleanOutput = sentence.toLowerCase().trim();
@@ -995,8 +1206,19 @@
             return sentence.charAt(0).toUpperCase() + sentence.slice(1) + endings[Math.floor(Math.random() * endings.length)];
         }
 
+        // Stats updates are expensive, debounce them
+        let densityTimeout = null;
+        function updateBrainDensityDebounced() {
+            if (densityTimeout) clearTimeout(densityTimeout);
+            densityTimeout = setTimeout(() => {
+                updateBrainDensity();
+                densityTimeout = null;
+            }, 1000);
+        }
+
         function updateComboUI() {
             const comboEl = document.getElementById('combo-display');
+            if (!comboEl) return;
             comboEl.innerText = `X${gameCombo}`;
             comboEl.style.opacity = gameCombo > 1 ? "1" : "0";
             comboEl.style.transform = `scale(${1 + (gameCombo * 0.1)}) rotate(${gameCombo}deg)`;
@@ -1238,7 +1460,22 @@
                 div.textContent = msg.text;
                 chatContainer.appendChild(div);
             });
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            // Use requestAnimationFrame for smooth scrolling after DOM load
+            requestAnimationFrame(() => chatContainer.scrollTop = chatContainer.scrollHeight);
+        }
+
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = `chat-bubble ${sender === 'user' ? 'user-bubble' : 'ai-bubble'} animate-in fade-in slide-in-from-bottom-2 duration-300`;
+            div.textContent = text;
+            chatContainer.appendChild(div);
+            
+            // Ensure the typing indicator is always at the bottom
+            chatContainer.appendChild(typingIndicator);
+            
+            requestAnimationFrame(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
         }
 
         // --- The "Logic" ---
@@ -1248,7 +1485,7 @@
                 const words = input.toLowerCase().split(/\s+/).filter(w => w.length > 0);
                 words.forEach(w => neuralInventory.add(w));
                 renderNeuralInventory();
-                save();
+                debouncedSave();
             }
 
             trainAI(input); // Learn from user
@@ -1276,6 +1513,8 @@
             e.preventDefault();
             const val = userInput.value.trim();
             if (!val) return;
+            
+            userInput.value = ''; // Clear immediately to allow rapid typing
 
             const chat = chats.find(c => c.id === currentChatId);
             if (!chat) {
@@ -1284,23 +1523,29 @@
                 return;
             }
             chat.messages.push({ sender: 'user', text: val });
-            userInput.value = '';
-            renderChat();
+            appendMessage('user', val);
             
             userMessageCount++;
-            save();
+            debouncedSave();
 
-            const isDeep = document.getElementById('deep-think-toggle').checked;
-            typingIndicator.innerText = isDeep ? "* Chewing on the pencil harder... *" : "* Chewing on a pencil... *";
+            pendingAIResponses++;
+            typingIndicator.innerText = settings.responseSpeed > 10 ? "* Chewing on the pencil harder... *" : "* Chewing on a pencil... *";
             typingIndicator.classList.remove('hidden');
-            const delay = isDeep ? (2500 + Math.random() * 4500) : (800 + Math.random() * 1000);
+            
+            // Enforce a minimum delay and add slight jitter to prevent race conditions at high speeds
+            const delay = Math.max(450, settings.responseSpeed * 1000) + (Math.random() * 200);
 
             setTimeout(() => {
-                typingIndicator.classList.add('hidden');
+                pendingAIResponses--;
+                if (pendingAIResponses <= 0) {
+                    typingIndicator.classList.add('hidden');
+                    pendingAIResponses = 0;
+                }
+                
                 const reply = getAIResponse(val);
                 chat.messages.push({ sender: 'ai', text: reply });
-                renderChat();
-                save();
+                appendMessage('ai', reply);
+                debouncedSave();
             }, delay);
         };
 
@@ -1360,20 +1605,6 @@
 
 
         newChatBtn.onclick = createNewChat;
-
-        darkToggle.onclick = () => {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem(DB_DARK, isDarkMode);
-        };
-
-        wipeBtn.onclick = () => {
-            if (confirm("Burn the whole notebook? This deletes ALL chats and memories!")) {
-                localStorage.clear();
-                location.reload();
-            }
-        };
-
         init();
     </script>
 </body>
