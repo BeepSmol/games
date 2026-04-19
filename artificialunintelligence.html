@@ -339,7 +339,7 @@
         </header>
 
         <div class="px-10 py-3 bg-black/5 border-y border-page-border/50 text-base font-bold" style="color: var(--pencil-gray)">
-            Chat with the AU to teach it new words and concepts. The more you talk, the more it learns for its internal thoughts and crafting elements. No polar bears will be harmed during usage.
+            Chat with the AI to teach it new words and concepts. The more you talk, the more it learns for its internal thoughts and crafting elements. No polar bears will be harmed during usage.
         </div>
 
         <!-- Messages Area -->
@@ -376,7 +376,7 @@
             <div class="flex justify-between items-center border-b-2 border-gray-300 pb-4">
                 <div>
                     <h2 class="marker-font text-4xl" style="color: var(--ink-blue)">Internal Monologue</h2>
-                    <p class="text-base font-bold mt-1" style="color: var(--pencil-gray)">Watch the AU's internal process as it tries to form original sentences from everything it has learned from you.</p>
+                    <p class="text-base font-bold mt-1" style="color: var(--pencil-gray)">Watch the AI's internal process as it tries to form original sentences from everything it has learned from you.</p>
                 </div>
                 <div class="flex items-center gap-4 bg-white/5 dark:bg-white/10 p-2 rounded-lg border border-black/10 dark:border-white/20">
                     <button id="think-view-toggle-btn" class="marker-font text-sm py-2 px-4 rounded bg-red-500 text-white shadow hover:opacity-90 transition-all active:scale-95" onclick="toggleThinkViewThinking()">
@@ -421,7 +421,7 @@
             <!-- Synthesis Arena -->
             <div class="relative flex-1 bg-black/[0.02] dark:bg-white/[0.02] overflow-hidden" id="game-arena">
                 <div class="absolute top-0 left-0 right-0 p-4 bg-black/5 border-b border-page-border/50 text-base font-bold text-center z-50" style="color: var(--pencil-gray)">
-                    AU Alchemy: Drag discovered concepts from your inventory and combine them to create new words based on the AU's collective knowledge.
+                    Neural Alchemy: Drag discovered concepts from your inventory and combine them to create new words based on the AI's collective knowledge.
                 </div>
 
                 <div class="ink-blot w-64 h-64 top-[-50px] left-[-50px]"></div>
@@ -430,8 +430,8 @@
                 
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="game-overlay">
                     <div class="text-center space-y-4">
-                        <div class="marker-font text-3xl opacity-30 uppercase">Do Stuff Here</div>
-                        <div class="text-xs opacity-20 uppercase font-bold tracking-widest">Drag words on top of each other to combine</div>
+                        <div class="marker-font text-3xl opacity-30 uppercase">Synthesis Arena</div>
+                        <div class="text-xs opacity-20 uppercase font-bold tracking-widest">Drag nodes on top of each other to combine</div>
                     </div>
                 </div>
             </div>
@@ -690,21 +690,43 @@
             const wordA = nodeA.innerText.toLowerCase();
             const wordB = nodeB.innerText.toLowerCase();
             const seed = `${wordA} ${wordB}`;
+            
+            // Use the AI to generate a contextual thought about these two elements
             const response = generateResponse(seed, 0);
             
-            // Extract a result: a word from the response that wasn't in the input
-            const resultWords = response.toLowerCase().replace(/[^\w\s]/g, '').split(' ');
-            const exclude = [nodeA.innerText.toLowerCase(), nodeB.innerText.toLowerCase(), 'and', 'the', 'is', 'of', 'to', 'a'];
-            const newConcept = resultWords.find(w => w.length > 3 && !exclude.includes(w)) || "mystery";
+            // Split and filter for potential results
+            const resultWords = response.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/);
+            const exclude = [wordA, wordB, 'and', 'the', 'is', 'of', 'to', 'a', 'in', 'that', 'it', 'with', 'for', 'was', 'were', 'had', 'has', 'have'];
+            
+            // 1. Try to find a meaningful word from the AI's generated response
+            let newConcept = resultWords.find(w => w.length > 3 && !exclude.includes(w));
+            
+            // 2. If that fails, look into the Markov model keys for a related word from its memory
+            if (!newConcept) {
+                const relatedKeys = Object.keys(markovModel).filter(k => 
+                    (k.includes(wordA) || k.includes(wordB)) && 
+                    !exclude.includes(k) &&
+                    k.split(' ').length === 1
+                );
+                
+                if (relatedKeys.length > 0) {
+                    newConcept = relatedKeys[Math.floor(Math.random() * relatedKeys.length)];
+                }
+            }
+
+            // 3. Absolute fallback: pick any word the AI knows at random to simulate a "glitchy" discovery
+            if (!newConcept) {
+                 const allWords = Object.keys(markovModel).filter(k => k.split(' ').length === 1 && !exclude.includes(k));
+                 newConcept = allWords.length > 0 ? allWords[Math.floor(Math.random() * allWords.length)] : "mystery";
+            }
             
             spawnCraftNode(newConcept, true, false, (nodeA.offsetLeft + nodeB.offsetLeft)/2, (nodeA.offsetTop + nodeB.offsetTop)/2);
             
-            // Add new discovery to inventory and re-render
-            neuralInventory.add(newConcept.toLowerCase());
-            renderNeuralInventory();
-            
-            // Auto-learn discoveries
-            trainAI(`Synthesizing ${wordA} and ${wordB} produced ${newConcept}.`);
+            if (newConcept !== "mystery") {
+                neuralInventory.add(newConcept.toLowerCase());
+                renderNeuralInventory();
+            }
+            // Removed the trainAI call here to keep game logic separate from chat personality
         }
 
         function spawnCraftNode(text, isResult = false, isGrabbed = false, startX = null, startY = null) {
@@ -1142,7 +1164,6 @@
             const currentChat = chats.find(c => c.id === currentChatId);
             if (currentChat && currentChat.title === 'New Scribble' && currentChat.messages.length < 4) {
                 currentChat.title = input.substring(0, 15) + (input.length > 15 ? '...' : '');
-                renderNeuralInventory();
                 renderSidebar();
             }
 
