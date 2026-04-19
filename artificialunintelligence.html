@@ -705,7 +705,7 @@
             if (!newConcept) {
                 const relatedKeys = Object.keys(markovModel).filter(k => 
                     (k.includes(wordA) || k.includes(wordB)) && 
-                    !exclude.includes(k) &&
+                    !exclude.includes(k.toLowerCase()) &&
                     k.split(' ').length === 1
                 );
                 
@@ -714,19 +714,18 @@
                 }
             }
 
-            // 3. Absolute fallback: pick any word the AI knows at random to simulate a "glitchy" discovery
+            // 3. Absolute fallback: pick any single word the AI knows from its learned vocabulary
             if (!newConcept) {
-                 const allWords = Object.keys(markovModel).filter(k => k.split(' ').length === 1 && !exclude.includes(k));
-                 newConcept = allWords.length > 0 ? allWords[Math.floor(Math.random() * allWords.length)] : "mystery";
+                 const allWords = Object.keys(markovModel).filter(k => k.split(' ').length === 1 && !exclude.includes(k.toLowerCase()));
+                 newConcept = allWords.length > 0 ? allWords[Math.floor(Math.random() * allWords.length)] : "nothing";
             }
             
             spawnCraftNode(newConcept, true, false, (nodeA.offsetLeft + nodeB.offsetLeft)/2, (nodeA.offsetTop + nodeB.offsetTop)/2);
             
-            if (newConcept !== "mystery") {
-                neuralInventory.add(newConcept.toLowerCase());
-                renderNeuralInventory();
-            }
-            // Removed the trainAI call here to keep game logic separate from chat personality
+            // Persist the discovery
+            neuralInventory.add(newConcept.toLowerCase());
+            renderNeuralInventory();
+            save();
         }
 
         function spawnCraftNode(text, isResult = false, isGrabbed = false, startX = null, startY = null) {
@@ -760,6 +759,10 @@
                 isResult: isResult
             };
             
+            gameArena.appendChild(node);
+            nodeData.w = node.offsetWidth;
+            nodeData.h = node.offsetHeight;
+
             node.onmousedown = (e) => {
                 draggedNode = nodeData;
                 node.style.transition = 'none';
@@ -794,7 +797,7 @@
                         performAlchemy(nodeData.el, target.el);
                         // Cleanup consumed nodes
                         [nodeData, target].forEach(n => {
-                            spawnInkDrip(n.x + n.size/2, n.y + n.size/2);
+                            spawnInkDrip(n.x + (n.w || 40), n.y + (n.h || 20));
                             gameNodes = gameNodes.filter(gn => gn !== n);
                             n.el.remove();
                         });
@@ -802,6 +805,7 @@
                         // If we clicked a standalone result, add it to inventory
                         neuralInventory.add(text.toLowerCase());
                         renderNeuralInventory();
+                        save(); // Ensure standalone clicks are saved
                         trainAI(`Synthesis of elements produced ${text}.`);
                         spawnInkDrip(nodeData.x, nodeData.y);
                         updateBrainDensity();
@@ -812,7 +816,6 @@
                 }
             };
 
-            gameArena.appendChild(node);
             gameNodes.push(nodeData);
         }
 
