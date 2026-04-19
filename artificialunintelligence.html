@@ -181,6 +181,7 @@
             flex-direction: column;
             padding: 15px;
             position: relative;
+            overflow: hidden;
         }
 
         /* Infinite Craft Style Elements */
@@ -420,11 +421,11 @@
     </div>
 
     <!-- Game View -->
-    <div id="game-view" class="flex-1 hidden overflow-hidden p-2 md:p-6 pt-0 md:pt-0">
-        <div class="flex-1 notebook-page overflow-hidden game-layout">
+    <div id="game-view" class="flex-1 hidden overflow-hidden p-2 md:p-6 pt-0 md:pt-0 h-full">
+        <div class="flex-1 notebook-page overflow-hidden game-layout h-full">
             <!-- Game Sidebar -->
-            <aside class="thought-sidebar border-r-2 border-page-border">
-                <div class="flex-1 flex flex-col overflow-hidden bg-black/5 rounded p-3">
+            <aside class="thought-sidebar border-r-2 border-page-border min-h-0">
+                <div class="flex-1 flex flex-col overflow-hidden bg-black/5 rounded p-3 min-h-0">
                     <h2 class="marker-font text-2xl mb-4 border-b border-page-border pb-2" style="color: var(--ink-blue)">Word Inventory</h2>
                     <div class="mb-4">
                         <label class="text-[10px] font-bold uppercase opacity-50 block mb-1">Organize By:</label>
@@ -764,7 +765,7 @@
             const response = generateResponse(seed, 0);
             
             // Split and filter for potential results
-            const resultWords = response.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/);
+            const resultWords = response.toLowerCase().split(/\s+/);
             const exclude = [wordA, wordB, 'and', 'the', 'is', 'of', 'to', 'a', 'in', 'that', 'it', 'with', 'for', 'was', 'were', 'had', 'has', 'have'];
             
             // 1. Try to find a meaningful word from the AI's generated response
@@ -890,7 +891,7 @@
 
         // --- The "Algorithm" ---
         function trainAI(text) {
-            const words = text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+            const words = text.split(/\s+/).filter(w => w.length > 0);
             
             updateBrainDensity();
 
@@ -916,7 +917,7 @@
         }
 
         function generateResponse(seedText = "", retryCount = 0) {
-            const inputWords = seedText.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+            const inputWords = seedText.split(/\s+/).filter(w => w.length > 0);
             let currentKey = "";
             
             // Try to use input keywords, but if we are retrying (to avoid copying), pick randomly
@@ -924,11 +925,19 @@
                 const randIdx = Math.floor(Math.random() * (inputWords.length - 1));
                 const target = inputWords[randIdx] + " " + inputWords[randIdx+1];
                 if (markovModel[target]) currentKey = target;
+                else {
+                    const match = Object.keys(markovModel).find(k => k.toLowerCase() === target.toLowerCase());
+                    if (match) currentKey = match;
+                }
             }
             
             if (!currentKey && inputWords.length >= 1 && retryCount === 0) {
                 const target = inputWords[Math.floor(Math.random() * inputWords.length)];
                 if (markovModel[target]) currentKey = target;
+                else {
+                    const match = Object.keys(markovModel).find(k => k.toLowerCase() === target.toLowerCase());
+                    if (match) currentKey = match;
+                }
             }
 
             // If retryCount > 0, we explicitly ignore input words to break a parrot loop
@@ -959,12 +968,19 @@
                     lookup = result[result.length-1];
                 }
                 
-                const choices = markovModel[lookup] || markovModel[result[result.length-1]];
+                let choices = markovModel[lookup] || markovModel[result[result.length-1]];
+
+                if ((!choices || choices.length === 0) && result.length > 0) {
+                    const fallbackKey = Object.keys(markovModel).find(k => k.toLowerCase() === lookup.toLowerCase()) ||
+                                      Object.keys(markovModel).find(k => k.toLowerCase() === result[result.length-1].toLowerCase());
+                    if (fallbackKey) choices = markovModel[fallbackKey];
+                }
+
                 if (!choices || choices.length === 0) break;
                 result.push(choices[Math.floor(Math.random() * choices.length)]);
             }
             
-            let sentence = result.join(' ');
+            const sentence = result.join(' ');
             
             // Anti-Copy Logic: If response is identical to input or a large chunk of it, try again
             const cleanInput = seedText.toLowerCase().trim();
@@ -1227,11 +1243,9 @@
 
         // --- The "Logic" ---
         function getAIResponse(input) {
-            const text = input.toLowerCase().trim();
-            
             // Populate inventory only from the first 10 messages
             if (userMessageCount <= 10) {
-                const words = input.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+                const words = input.toLowerCase().split(/\s+/).filter(w => w.length > 0);
                 words.forEach(w => neuralInventory.add(w));
                 renderNeuralInventory();
                 save();
@@ -1319,8 +1333,6 @@
             } else {
                 gameView.style.display = 'flex';
                 navGame.classList.add('active');
-                // Hide instruction overlay when entering game
-                document.getElementById('game-overlay').style.display = 'none';
             }
         }
 
