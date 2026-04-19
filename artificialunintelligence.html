@@ -133,6 +133,96 @@
             border-bottom: 1px solid var(--page-border);
             border-radius: 4px;
             margin-bottom: 4px;
+            user-select: none;
+        }
+
+        .inventory-item {
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            background: var(--user-bg);
+            border: 1px solid var(--page-border); /* Removed active:border-ink-blue */
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Think View & Game Sidebar Styles */
+        .thought-log {
+            background: var(--ai-bg);
+            border: 1px dashed var(--page-border);
+            font-family: monospace;
+            font-size: 0.9rem;
+            padding: 15px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 0;
+            height: 100%;
+        }
+
+        .thought-sidebar {
+            background: var(--sidebar-bg);
+            border-right: 2px solid var(--page-border);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            position: relative;
+        }
+
+        /* Infinite Craft Style Elements */
+        .craft-node {
+            position: absolute;
+            background: var(--paper-bg);
+            border: 2px solid var(--page-border);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: move;
+            user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s, border-color 0.2s, background 0.2s;
+            box-shadow: 3px 3px 0px var(--page-border);
+            overflow: hidden;
+            min-width: 80px;
+            height: 40px;
+            padding: 0 15px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            z-index: 10;
+            color: var(--ink-blue);
+        }
+
+        .craft-node:active {
+            cursor: grabbing;
+            transform: scale(1.02);
+        }
+
+        .craft-node:hover {
+            border-color: var(--ink-blue);
+            z-index: 100;
+        }
+
+        .craft-node.result {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px #3b82f6; /* Blue highlight for new discoveries */
+            z-index: 500;
+        }
+
+        .synapse-node.chaotic {
+            border-color: var(--accent);
+            animation: wiggle 0.2s infinite;
+        }
+
+        @keyframes wiggle {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(2deg); }
+            75% { transform: rotate(-2deg); }
+            100% { transform: rotate(0deg); }
         }
 
         .sidebar-item:hover {
@@ -164,45 +254,14 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
 
-        #game-view {
-            background: var(--paper-bg);
-            display: none; /* Controlled by switchView */
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
-
         .ink-blot {
             position: absolute;
             background: var(--ink-blue);
             filter: blur(20px);
             border-radius: 50%;
-            opacity: 0.15;
+            opacity: 0.1;
             z-index: 1;
             animation: blob-pulse 8s infinite alternate;
-        }
-
-        @keyframes blob-pulse {
-            from { transform: scale(1) translate(0, 0); }
-            to { transform: scale(1.5) translate(20px, -30px); }
-        }
-
-        .todo-list {
-            border: 2px solid var(--page-border);
-            padding: 20px;
-            background: rgba(255,255,255,0.05);
-            transform: rotate(2deg);
-            max-width: 300px;
-            z-index: 10;
-            box-shadow: 10px 10px 0px var(--page-border);
-        }
-
-        .strike {
-            text-decoration: line-through;
-            opacity: 0.5;
-            font-style: italic;
         }
 
         .game-status-text {
@@ -216,11 +275,22 @@
             from { width: 0; }
             to { width: 100%; }
         }
+
+        #combo-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 3rem;
+            color: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden dark-mode">
     <nav class="flex justify-center gap-4 p-4 z-[3000] relative">
         <button id="nav-chat" class="btn-nav active" onclick="switchView('chat')">CHAT</button>
+        <button id="nav-think" class="btn-nav" onclick="switchView('think')">THINK</button>
         <button id="nav-game" class="btn-nav" onclick="switchView('game')">GAME</button>
     </nav>
 
@@ -256,7 +326,7 @@
         <header class="p-6 pt-8 flex justify-between items-start z-10">
             <div>
                 <h1 class="marker-font text-4xl rotate-[-1deg]" style="color: var(--ink-blue)">Artificial Unintelligence</h1>
-                <p class="text-sm italic text-gray-500 ml-1">Studying your handwriting...</p>
+                <p class="text-sm italic text-gray-500 ml-1">Yum</p>
             </div>
             <div class="flex flex-col items-end gap-2">
                 <button id="dark-toggle" class="tape px-4 py-1 text-[10px] font-black uppercase tracking-tighter">
@@ -267,6 +337,10 @@
                 </button>
             </div>
         </header>
+
+        <div class="px-10 py-3 bg-black/5 border-y border-page-border/50 text-base font-bold" style="color: var(--pencil-gray)">
+            Chat with the AI to teach it new words and concepts. The more you talk, the more it learns for its internal thoughts and crafting elements. No polar bears will be harmed during usage.
+        </div>
 
         <!-- Messages Area -->
         <div id="chat-container" class="flex-1 overflow-y-auto overflow-x-hidden px-10 py-4 flex flex-col space-y-2">
@@ -296,29 +370,71 @@
         </footer>
     </div>
 
-    <!-- Game View (Redesigned Construction) -->
-    <div id="game-view" class="flex-1 notebook-page m-2 md:m-6 mt-0 md:mt-0 p-8">
-        <div class="ink-blot w-64 h-64 top-[-50px] left-[-50px]"></div>
-        <div class="ink-blot w-96 h-96 bottom-[-100px] right-[-100px]" style="animation-delay: -2s;"></div>
-
-        <div class="relative z-10 flex flex-col items-center gap-8">
-            <h1 class="marker-font text-5xl md:text-7xl text-center rotate-[-2deg]" style="color: var(--ink-blue)">
-                Im sharpening my pencil leave me in peace
-            </h1>
-            
-            <div class="todo-list">
-                <h3 class="font-bold border-b border-gray-400 mb-2 uppercase text-xs tracking-widest">To-Do List</h3>
-                <ul class="text-lg space-y-2">
-                    <li class="strike">✓ Learn how to count to 3</li>
-                    <li class="strike">✓ start making th game</li>
-                    <li>☐ Teach the AI how to play tag</li>
-                    <li>☐ Stop eating the pencils (mmm... pencils)</li>
-                </ul>
+    <!-- Think View -->
+    <div id="think-view" class="flex-1 hidden overflow-hidden p-2 md:p-6 pt-0 md:pt-0">
+        <div class="flex-1 notebook-page p-8 flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b-2 border-gray-300 pb-4">
+                <div>
+                    <h2 class="marker-font text-4xl" style="color: var(--ink-blue)">Internal Monologue</h2>
+                    <p class="text-base font-bold mt-1" style="color: var(--pencil-gray)">Watch the AI's internal process as it tries to form original sentences from everything it has learned from you.</p>
+                </div>
+                <div class="flex items-center gap-4 bg-white/5 dark:bg-white/10 p-2 rounded-lg border border-black/10 dark:border-white/20">
+                    <button id="think-view-toggle-btn" class="marker-font text-sm py-2 px-4 rounded bg-red-500 text-white shadow hover:opacity-90 transition-all active:scale-95" onclick="toggleThinkViewThinking()">
+                        START TO THINK
+                    </button>
+                    <label class="flex items-center gap-2 cursor-pointer text-sm font-bold uppercase tracking-wider">
+                        <input type="checkbox" id="permanent-learning-toggle" class="w-4 h-4 accent-red-500">
+                        Permanent Learning
+                    </label>
+                </div>
             </div>
+            <div id="think-log" class="thought-log rounded-lg">
+                <!-- Thoughts stream here -->
+                <div class="opacity-30 italic">* Idle... *</div>
+            </div>
+        </div>
+    </div>
 
-            <p class="game-status-text font-mono text-sm opacity-70">
-                &gt; Status: Idk
-            </p>
+    <!-- Game View -->
+    <div id="game-view" class="flex-1 hidden overflow-hidden p-2 md:p-6 pt-0 md:pt-0">
+        <div class="flex-1 notebook-page overflow-hidden game-layout">
+            <!-- Game Sidebar -->
+            <aside class="thought-sidebar border-r-2 border-page-border">
+                <div class="flex-1 flex flex-col overflow-hidden bg-black/5 rounded p-3">
+                    <h2 class="marker-font text-2xl mb-4 border-b border-page-border pb-2" style="color: var(--ink-blue)">Word Inventory</h2>
+                    <div class="mb-4">
+                        <label class="text-[10px] font-bold uppercase opacity-50 block mb-1">Organize By:</label>
+                        <select id="inventory-sort-mode" onchange="renderNeuralInventory()" class="w-full text-xs p-1 bg-white/50 dark:bg-black/20 border border-page-border rounded outline-none font-sans">
+                            <option value="az">A - Z</option>
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="length">Shortest First</option>
+                        </select>
+                    </div>
+                    <div id="neural-inventory" class="flex-1 overflow-y-auto flex flex-wrap content-start gap-2">
+                        <!-- Discovered words here -->
+                        <div class="opacity-30 italic text-[10px] w-full text-center py-4">Chat to learn concepts...</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Synthesis Arena -->
+            <div class="relative flex-1 bg-black/[0.02] dark:bg-white/[0.02] overflow-hidden" id="game-arena">
+                <div class="absolute top-0 left-0 right-0 p-4 bg-black/5 border-b border-page-border/50 text-base font-bold text-center z-50" style="color: var(--pencil-gray)">
+                    Neural Alchemy: Drag discovered concepts from your inventory and combine them to create new words based on the AI's collective knowledge.
+                </div>
+
+                <div class="ink-blot w-64 h-64 top-[-50px] left-[-50px]"></div>
+                <div class="ink-blot w-96 h-96 bottom-[-100px] right-[-100px]" style="animation-delay: -2s;"></div>
+                <div id="combo-display" class="marker-font pointer-events-none">X1</div>
+                
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="game-overlay">
+                    <div class="text-center space-y-4">
+                        <div class="marker-font text-3xl opacity-30 uppercase">Synthesis Arena</div>
+                        <div class="text-xs opacity-20 uppercase font-bold tracking-widest">Drag nodes on top of each other to combine</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -339,12 +455,37 @@
         const DB_MARKOV = 'au_v2_markov';
         const DB_CURRENT_ID = 'au_v2_current_chat';
         const DB_DARK = 'au_v2_darkmode';
+        const DB_INVENTORY = 'au_v2_inventory';
+        const DB_MSG_COUNT = 'au_v2_msg_count';
 
         // --- State ---
         let chats = JSON.parse(localStorage.getItem(DB_CHATS)) || [];
         let markovModel = JSON.parse(localStorage.getItem(DB_MARKOV)) || {};
         let currentChatId = localStorage.getItem(DB_CURRENT_ID) || null;
         let isDarkMode = localStorage.getItem(DB_DARK) !== 'false';
+        let neuralInventory = new Set(JSON.parse(localStorage.getItem(DB_INVENTORY)) || []);
+        let userMessageCount = parseInt(localStorage.getItem(DB_MSG_COUNT)) || 0;
+
+        // --- Game & Think State ---
+        let isBrainstorming = false;
+        let thoughtInterval = null;
+        let gameNodes = [];
+        let gameScore = 0;
+        let gameCombo = 1;
+        let comboTimer = null;
+        let isThinkingManual = false; // Initial state
+        let isThinkViewActive = false;
+        let lastThinkTime = 0;
+        let lastInternalThought = "";
+        
+        // Neural Alchemy State
+        let draggedNode = null;
+        let alchemySlots = [null, null];
+
+        const selfTalkPrefixes = [
+            "I wonder if ", "Maybe ", "But ", "Actually, ", "Wait... ", 
+            "So then, ", "What if ", "Perhaps ", "I think ", "Does "
+        ];
 
         // --- DOM Elements ---
         const chatContainer = document.getElementById('chat-container');
@@ -356,6 +497,12 @@
         const wipeBtn = document.getElementById('wipe-btn');
         const darkToggle = document.getElementById('dark-toggle');
 
+        const thinkLog = document.getElementById('think-log');
+        const permLearning = document.getElementById('permanent-learning-toggle');
+        const gameThoughtStream = document.getElementById('game-thought-stream');
+        const gameArena = document.getElementById('game-arena');
+        const scoreDisplay = document.getElementById('game-score');
+
         const mapModal = document.getElementById('map-modal');
         const expandedCanvas = document.getElementById('expanded-map');
         const ectx = expandedCanvas.getContext('2d');
@@ -363,6 +510,7 @@
         // --- Panning State ---
         let panX = 0;
         let panY = 0;
+        let mapZoom = 1.0;
         let isDraggingMap = false;
         let lastMouseX = 0;
         let lastMouseY = 0;
@@ -379,6 +527,7 @@
 
             renderSidebar();
             renderChat();
+            renderNeuralInventory();
             updateBrainDensity();
 
             // Setup Map Dragging
@@ -400,6 +549,22 @@
             });
 
             animateNeuralMap();
+            
+            // Background thinking loop
+            setInterval(() => {
+                if (isBrainstorming || (isThinkViewActive && isThinkingManual)) executeThought();
+            }, 3000);
+            
+            // Synapse auto-cleanup to prevent UI breakage
+            setInterval(() => {
+                if (gameNodes.length > 20) {
+                    const oldest = gameNodes.find(n => !n.isResult);
+                    if (oldest) {
+                        oldest.el.remove();
+                        gameNodes = gameNodes.filter(n => n !== oldest);
+                    }
+                }
+            }, 5000);
         }
 
         // --- Chat Management ---
@@ -443,6 +608,187 @@
             localStorage.setItem(DB_CHATS, JSON.stringify(chats));
             localStorage.setItem(DB_MARKOV, JSON.stringify(markovModel));
             localStorage.setItem(DB_CURRENT_ID, currentChatId);
+            localStorage.setItem(DB_INVENTORY, JSON.stringify(Array.from(neuralInventory)));
+            localStorage.setItem(DB_MSG_COUNT, userMessageCount);
+        }
+
+        // --- Internal Thinking Logic ---
+        function executeThought() {
+            const now = Date.now();
+            if (now - lastThinkTime < 2000) return;
+            lastThinkTime = now;
+
+            const keys = Object.keys(markovModel);
+            if (keys.length === 0) {
+                if (isThinkViewActive && isThinkingManual) {
+                    const entry = document.createElement('div');
+                    entry.className = "mb-2 text-red-500/70 italic animate-in fade-in duration-500";
+                    entry.innerText = "> System has no knowledge. Talk to me in the CHAT tab so I have something to think about...";
+                    thinkLog.prepend(entry);
+                    if (thinkLog.children.length > 100) thinkLog.lastChild.remove();
+                    toggleThinkViewThinking(); // Stop thinking since we can't
+                }
+                return;
+            }
+
+            // Use the last thought as context to make it feel like it's talking to itself
+            let rawThought = generateResponse(lastInternalThought, 0);
+            
+            // Add some internal monologue "flavor" occasionally
+            let thought = rawThought;
+            if (Math.random() < 0.4) {
+                const prefix = selfTalkPrefixes[Math.floor(Math.random() * selfTalkPrefixes.length)];
+                thought = prefix + rawThought.charAt(0).toLowerCase() + rawThought.slice(1);
+            }
+            lastInternalThought = rawThought;
+            
+            // 1. Recursive Learning
+            // Check which toggle to use based on which mode is active
+            if (isThinkViewActive && permLearning.checked) {
+                trainAI(thought);
+            }
+
+            // 2. Update Think View
+            if (isThinkViewActive) {
+                const entry = document.createElement('div');
+                entry.className = "mb-2 border-b border-white/5 pb-1 animate-in slide-in-from-left duration-500";
+                entry.innerHTML = `<span class="text-blue-400 font-bold">[${new Date().toLocaleTimeString()}]</span> ${thought}`;
+                thinkLog.prepend(entry);
+                if (thinkLog.children.length > 100) thinkLog.lastChild.remove();
+            }
+        }
+
+        function renderNeuralInventory() {
+            const container = document.getElementById('neural-inventory');
+            const sortMode = document.getElementById('inventory-sort-mode')?.value || 'az';
+            container.innerHTML = '';
+
+            let items = Array.from(neuralInventory);
+            
+            if (sortMode === 'az') {
+                items.sort((a, b) => a.localeCompare(b));
+            } else if (sortMode === 'newest') {
+                items.reverse();
+            } else if (sortMode === 'length') {
+                items.sort((a, b) => a.length - b.length);
+            }
+            // 'oldest' uses the natural insertion order of the Set
+
+            items.forEach(word => {
+                const el = document.createElement('div');
+                el.className = `inventory-item shadow-sm hover:scale-105 transition-transform border-2 border-transparent active:border-ink-blue`;
+                el.innerText = word.toUpperCase();
+                el.onmousedown = () => spawnCraftNode(word, false, true);
+                container.appendChild(el);
+            });
+        }
+
+        function performAlchemy(nodeA, nodeB) {
+            const wordA = nodeA.innerText.toLowerCase();
+            const wordB = nodeB.innerText.toLowerCase();
+            const seed = `${wordA} ${wordB}`;
+            const response = generateResponse(seed, 0);
+            
+            // Extract a result: a word from the response that wasn't in the input
+            const resultWords = response.toLowerCase().replace(/[^\w\s]/g, '').split(' ');
+            const exclude = [nodeA.innerText.toLowerCase(), nodeB.innerText.toLowerCase(), 'and', 'the', 'is', 'of', 'to', 'a'];
+            const newConcept = resultWords.find(w => w.length > 3 && !exclude.includes(w)) || "mystery";
+            
+            spawnCraftNode(newConcept, true, false, (nodeA.offsetLeft + nodeB.offsetLeft)/2, (nodeA.offsetTop + nodeB.offsetTop)/2);
+            
+            // Add new discovery to inventory and re-render
+            neuralInventory.add(newConcept.toLowerCase());
+            renderNeuralInventory();
+            
+            // Auto-learn discoveries
+            trainAI(`Synthesizing ${wordA} and ${wordB} produced ${newConcept}.`);
+        }
+
+        function spawnCraftNode(text, isResult = false, isGrabbed = false, startX = null, startY = null) {
+            const node = document.createElement('div');
+            let classes = "craft-node animate-in zoom-in duration-300";
+            
+            if (isResult) classes += " result";
+            
+            text = text.toLowerCase().substring(0, 25); 
+
+            node.className = classes;
+            if (isResult) {
+                node.classList.add('result'); // Apply blue highlight
+                setTimeout(() => { node.classList.remove('result'); }, 1000); // Fade back after 1 second
+            }
+
+            node.innerText = text.toUpperCase();
+            
+            const initialX = startX !== null ? startX : Math.random() * (gameArena.clientWidth - 150);
+            const initialY = startY !== null ? startY : Math.random() * (gameArena.clientHeight - 50);
+            node.style.left = initialX + 'px';
+            node.style.top = initialY + 'px';
+            
+            // Physics properties influenced by thought content
+            const nodeData = {
+                el: node,
+                x: initialX,
+                y: initialY,
+                vx: 0,
+                vy: 0,
+                isResult: isResult
+            };
+            
+            node.onmousedown = (e) => {
+                draggedNode = nodeData;
+                node.style.transition = 'none';
+                node.style.zIndex = '1000';
+            };
+
+            if (isGrabbed) {
+                draggedNode = nodeData;
+                node.style.transition = 'none';
+                node.style.zIndex = '1000';
+            }
+            
+            window.addEventListener('mousemove', (e) => {
+                if (draggedNode === nodeData) {
+                    const rect = gameArena.getBoundingClientRect();
+                    nodeData.x = e.clientX - rect.left - (node.offsetWidth / 2);
+                    nodeData.y = e.clientY - rect.top - (node.offsetHeight / 2);
+                    node.style.left = nodeData.x + 'px';
+                    node.style.top = nodeData.y + 'px';
+                }
+            });
+
+            node.onmouseup = () => {
+                if (draggedNode === nodeData) {
+                    node.style.zIndex = '10';
+                    
+                    // Synthesis Detection (Intersection)
+                    const target = gameNodes.find(n => n !== nodeData && 
+                        Math.hypot(n.x - nodeData.x, n.y - nodeData.y) < 40);
+                    
+                    if (target) {
+                        performAlchemy(nodeData.el, target.el);
+                        // Cleanup consumed nodes
+                        [nodeData, target].forEach(n => {
+                            spawnInkDrip(n.x + n.size/2, n.y + n.size/2);
+                            gameNodes = gameNodes.filter(gn => gn !== n);
+                            n.el.remove();
+                        });
+                    } else if (isResult) {
+                        // If we clicked a standalone result, add it to inventory
+                        neuralInventory.add(text.toLowerCase());
+                        renderNeuralInventory();
+                        trainAI(`Synthesis of elements produced ${text}.`);
+                        spawnInkDrip(nodeData.x, nodeData.y);
+                        updateBrainDensity();
+                        gameNodes = gameNodes.filter(n => n !== nodeData);
+                        node.remove();
+                    }
+                    draggedNode = null;
+                }
+            };
+
+            gameArena.appendChild(node);
+            gameNodes.push(nodeData);
         }
 
         // --- The "Algorithm" ---
@@ -495,6 +841,7 @@
 
             if (!currentKey) {
                 const keys = Object.keys(markovModel);
+                if (keys.length === 0) return "My notebook is empty. Write something for me to learn.";
                 currentKey = keys[Math.floor(Math.random() * keys.length)];
             }
 
@@ -528,6 +875,25 @@
             return sentence.charAt(0).toUpperCase() + sentence.slice(1) + endings[Math.floor(Math.random() * endings.length)];
         }
 
+        function updateComboUI() {
+            const comboEl = document.getElementById('combo-display');
+            comboEl.innerText = `X${gameCombo}`;
+            comboEl.style.opacity = gameCombo > 1 ? "1" : "0";
+            comboEl.style.transform = `scale(${1 + (gameCombo * 0.1)}) rotate(${gameCombo}deg)`;
+        }
+
+        function spawnInkDrip(x, y) {
+            const drip = document.createElement('div');
+            drip.className = "absolute bg-blue-900/40 rounded-full blur-md pointer-events-none";
+            drip.style.width = "20px";
+            drip.style.height = "20px";
+            drip.style.left = x + "px";
+            drip.style.top = y + "px";
+            gameArena.appendChild(drip);
+            
+            drip.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(4) translate(0, 50px)' }], { duration: 1000, easing: 'ease-out' }).onfinish = () => drip.remove();
+        }
+
         // --- Brain Visualization ---
         function updateBrainDensity() {
             const keys = Object.keys(markovModel).length;
@@ -551,12 +917,24 @@
             resizeExpandedCanvas();
             // Pre-populate with more nodes for the big view
             initNodes(expandedNodes, 80, expandedCanvas, true);
+            
+            // Center the view on the cluster
+            panX = expandedCanvas.width / 2;
+            panY = expandedCanvas.height / 2;
+            mapZoom = 1.0;
         }
 
         function closeNeuralExplorer() {
             isMapExpanded = false;
             mapModal.classList.add('hidden');
         }
+
+        expandedCanvas.onwheel = (e) => {
+            if (!isMapExpanded) return;
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            mapZoom = Math.max(0.1, Math.min(5.0, mapZoom * delta));
+        };
 
         function resizeExpandedCanvas() {
             expandedCanvas.width = expandedCanvas.clientWidth;
@@ -663,24 +1041,30 @@
                 if (node.x < (showLabels ? -limit : 0) || node.x > limit) node.vx *= -1;
                 if (node.y < (showLabels ? -limit : 0) || node.y > limit) node.vy *= -1;
 
+                // Only scale positions if labels are shown (the expanded Synaptic Explorer)
+                const drawX = showLabels ? node.x * mapZoom : node.x;
+                const drawY = showLabels ? node.y * mapZoom : node.y;
+
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, showLabels ? 4 : 2, 0, Math.PI * 2);
+                ctx.arc(drawX, drawY, showLabels ? 4 : 2, 0, Math.PI * 2);
                 ctx.fill();
 
                 if (showLabels) {
                     ctx.save();
                     ctx.fillStyle = textColor;
-                    ctx.font = '12px Kalam';
+                    ctx.font = '12px Kalam'; // Font size remains constant
                     ctx.shadowBlur = 4;
                     ctx.shadowColor = 'black';
-                    ctx.fillText(node.word, node.x + 8, node.y + 4);
+                    ctx.fillText(node.word, drawX + 8, drawY + 4);
                     ctx.restore();
 
                     node.links.forEach(linkIdx => {
                         const target = nodes[linkIdx];
+                        const targetDrawX = target.x * mapZoom;
+                        const targetDrawY = target.y * mapZoom;
                         ctx.beginPath();
-                        ctx.moveTo(node.x, node.y);
-                        ctx.lineTo(target.x, target.y);
+                        ctx.moveTo(drawX, drawY);
+                        ctx.lineTo(targetDrawX, targetDrawY);
                         ctx.strokeStyle = color;
                         ctx.globalAlpha = 0.3;
                         ctx.stroke();
@@ -689,11 +1073,11 @@
                 } else {
                     for (let j = i + 1; j < nodes.length; j++) {
                         const other = nodes[j];
-                        const dist = Math.hypot(node.x - other.x, node.y - other.y);
+                        const dist = Math.hypot(drawX - other.x, drawY - other.y);
                         if (dist < 60) {
                             ctx.globalAlpha = 1 - (dist / 60);
                             ctx.beginPath();
-                            ctx.moveTo(node.x, node.y);
+                            ctx.moveTo(drawX, drawY);
                             ctx.lineTo(other.x, other.y);
                             ctx.stroke();
                             ctx.globalAlpha = 1;
@@ -741,19 +1125,28 @@
         function getAIResponse(input) {
             const text = input.toLowerCase().trim();
             
+            // Populate inventory only from the first 10 messages
+            if (userMessageCount <= 10) {
+                const words = input.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+                words.forEach(w => neuralInventory.add(w));
+                renderNeuralInventory();
+                save();
+            }
+
             trainAI(input); // Learn from user
 
             // Update chat title if it's the first real message
             const currentChat = chats.find(c => c.id === currentChatId);
             if (currentChat && currentChat.title === 'New Scribble' && currentChat.messages.length < 4) {
                 currentChat.title = input.substring(0, 15) + (input.length > 15 ? '...' : '');
+                renderNeuralInventory();
                 renderSidebar();
             }
 
             // Silence Period Check
             const userMessageCount = currentChat.messages.filter(m => m.sender === 'user').length;
             if (userMessageCount <= (currentChat.threshold || 2)) {
-                const silenceOptions = ["Ok.", "...", "Ok", "Got it.", "Writing it down."];
+                const silenceOptions = ["huh", "Ok" ];
                 return silenceOptions[Math.floor(Math.random() * silenceOptions.length)];
             }
 
@@ -771,6 +1164,8 @@
             chat.messages.push({ sender: 'user', text: val });
             userInput.value = '';
             renderChat();
+            
+            userMessageCount++;
             save();
 
             typingIndicator.classList.remove('hidden');
@@ -786,21 +1181,59 @@
         function switchView(view) {
             const chatView = document.getElementById('chat-view');
             const gameView = document.getElementById('game-view');
+            const thinkView = document.getElementById('think-view');
+            
             const navChat = document.getElementById('nav-chat');
             const navGame = document.getElementById('nav-game');
+            const navThink = document.getElementById('nav-think');
+
+            // Reset states
+            chatView.style.display = 'none';
+            gameView.style.display = 'none';
+            thinkView.style.display = 'none';
+            navChat.classList.remove('active');
+            navGame.classList.remove('active');
+            navThink.classList.remove('active');
+            
+            isThinkViewActive = false;
 
             if (view === 'chat') {
                 chatView.style.display = 'flex';
-                gameView.style.display = 'none';
                 navChat.classList.add('active');
-                navGame.classList.remove('active');
+            } else if (view === 'think') {
+                thinkView.style.display = 'flex';
+                navThink.classList.add('active');
+                isThinkViewActive = true;
             } else {
-                chatView.style.display = 'none';
                 gameView.style.display = 'flex';
-                navChat.classList.remove('active');
                 navGame.classList.add('active');
+                // Hide instruction overlay when entering game
+                document.getElementById('game-overlay').style.display = 'none';
             }
         }
+
+        function toggleBrainstorming() {
+            isBrainstorming = !isBrainstorming;
+            const btn = document.getElementById('start-thinking-btn');
+            btn.innerText = isBrainstorming ? "STOP THINKING" : "START TO THINK";
+            btn.classList.toggle('bg-red-500', !isBrainstorming);
+            document.getElementById('game-overlay').style.display = isBrainstorming ? 'none' : 'flex';
+            
+            if(!isBrainstorming) {
+                gameNodes.forEach(n => n.el.remove());
+                gameNodes = [];
+            }
+            btn.classList.toggle('bg-gray-600', isBrainstorming);
+        }
+
+        function toggleThinkViewThinking() {
+            isThinkingManual = !isThinkingManual;
+            const btn = document.getElementById('think-view-toggle-btn');
+            btn.innerText = isThinkingManual ? "STOP THINKING" : "START TO THINK";
+            btn.classList.toggle('bg-red-500', !isThinkingManual);
+            btn.classList.toggle('bg-gray-600', isThinkingManual);
+        }
+
 
         newChatBtn.onclick = createNewChat;
 
