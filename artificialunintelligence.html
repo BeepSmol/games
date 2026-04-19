@@ -521,8 +521,11 @@
             
             if (chats.length === 0) {
                 createNewChat();
-            } else if (!currentChatId) {
-                currentChatId = chats[0].id;
+            } else {
+                const chatExists = chats.some(c => c.id === currentChatId);
+                if (!currentChatId || !chatExists) {
+                    currentChatId = chats[0].id;
+                }
             }
 
             renderSidebar();
@@ -1144,8 +1147,8 @@
             }
 
             // Silence Period Check
-            const userMessageCount = currentChat.messages.filter(m => m.sender === 'user').length;
-            if (userMessageCount <= (currentChat.threshold || 2)) {
+            const localMsgCount = currentChat.messages.filter(m => m.sender === 'user').length;
+            if (localMsgCount <= (currentChat.threshold || 2)) {
                 const silenceOptions = ["huh", "Ok" ];
                 return silenceOptions[Math.floor(Math.random() * silenceOptions.length)];
             }
@@ -1161,6 +1164,11 @@
             if (!val) return;
 
             const chat = chats.find(c => c.id === currentChatId);
+            if (!chat) {
+                console.error("Chat synchronization error. Resetting view.");
+                switchChat(chats[0]?.id);
+                return;
+            }
             chat.messages.push({ sender: 'user', text: val });
             userInput.value = '';
             renderChat();
