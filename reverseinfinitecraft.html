@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Infinite Craft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        body {
+            /* A soft, off-white background similar to clean, minimal web apps */
+            background-color: #fcfcfc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .element-badge {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: default;
+            user-select: none;
+            transition: all 0.15s ease;
+            color: #1e293b;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .element-badge:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.06);
+            transform: translateY(-1px);
+        }
+
+        .element-badge-large {
+            padding: 12px 20px;
+            font-size: 20px;
+            border-radius: 8px;
+        }
+
+        /* Subtle shake animation for empty inputs */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .shake {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Custom Scrollbar for inventory */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+
+    <!-- Main Action Area -->
+    <main class="flex-1 flex flex-col relative h-[60vh] md:h-screen border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_15px_rgba(0,0,0,0.03)] z-10 bg-[#fcfcfc] dark:bg-slate-900">
+        
+        <!-- Header -->
+        <header class="p-6 flex justify-between items-start">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Reverse Infinite Craft</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">You are the AI. The user asks for a combination. You decide what they make.</p>
+            </div>
+            <div class="flex flex-col items-end gap-3">
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:ring-2 hover:ring-slate-200 dark:hover:ring-slate-700 transition-all" title="Toggle Theme">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <div class="text-xs text-slate-400 font-mono text-right hidden sm:block">
+                    // ai took my job<br>
+                    // so i took its job
+                </div>
+            </div>
+        </header>
+
+        <!-- Crafting Station -->
+        <div class="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-3xl mx-auto">
+            
+            <div class="bg-white dark:bg-slate-800/50 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 w-full flex flex-col items-center">
+                <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-6">Current Request</div>
+                
+                <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-slate-400 dark:text-slate-500 text-lg sm:text-xl font-medium w-full">
+                    <div id="element-a" class="element-badge element-badge-large dark:bg-slate-800 dark:border-slate-700 dark:text-white">
+                        <!-- Populated by JS -->
+                    </div>
+                    <span>+</span>
+                    <div id="element-b" class="element-badge element-badge-large dark:bg-slate-800 dark:border-slate-700 dark:text-white">
+                        <!-- Populated by JS -->
+                    </div>
+                    <span>=</span>
+                    
+                    <form id="craft-form" class="flex flex-wrap sm:flex-nowrap justify-center gap-2 relative w-full sm:w-auto mt-4 sm:mt-0">
+                        <!-- Emoji Selector -->
+                        <div class="relative">
+                            <button type="button" id="emoji-picker-btn" 
+                                class="border-2 border-slate-200 dark:border-slate-700 rounded-xl px-2 py-3 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all text-xl w-16 text-center bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white" title="Choose an emoji">
+                                😀
+                            </button>
+                            <input type="hidden" id="selected-emoji" value="">
+                            <div id="emoji-dropdown" class="hidden absolute bottom-full mb-2 left-0 w-64 max-h-48 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-2 grid grid-cols-6 gap-1 z-50">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <input type="text" id="result-input" autocomplete="off" placeholder="Type your output..." 
+                            class="border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all text-xl w-full sm:w-64 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-300 dark:placeholder-slate-500">
+                        <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white px-6 py-3 rounded-xl shadow-sm transition-colors font-semibold">
+                            Save
+                        </button>
+                    </form>
+                </div>
+
+                <div class="mt-6 flex gap-3 w-full justify-center">
+                    <button id="skip-btn" class="text-sm text-slate-400 hover:text-slate-600 transition-colors px-3 py-1 rounded hover:bg-slate-50">
+                        Skip this request
+                    </button>
+                </div>
+            </div>
+
+            <!-- History Log -->
+            <div class="mt-12 w-full max-w-2xl flex flex-col items-center">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Recent Outputs</div>
+                <div id="history-container" class="flex flex-col gap-3 w-full max-h-48 overflow-y-auto px-4 pb-4 items-center">
+                    <!-- History items populate here -->
+                    <div class="text-slate-300 text-sm italic" id="empty-history">Waiting for your first generation...</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Sidebar / Inventory -->
+    <aside class="w-full md:w-80 lg:w-96 bg-[#f8fafc] dark:bg-slate-950 h-[40vh] md:h-screen overflow-y-auto p-6">
+        <div class="flex justify-between items-end mb-6 sticky top-0 bg-[#f8fafc] dark:bg-slate-950 pt-2 pb-4 border-b border-slate-200/50 dark:border-slate-800/50 z-10">
+            <h2 class="text-lg font-bold text-slate-700 dark:text-slate-200">Discovered</h2>
+            <span id="discovery-count" class="text-sm font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">4 items</span>
+        </div>
+        
+        <div id="inventory-grid" class="flex flex-wrap gap-2">
+            <!-- Inventory items populate here -->
+        </div>
+    </aside>
+
+    <script>
+        // --- State ---
+        const initialElements = [
+            { name: 'Water', emoji: '💧' },
+            { name: 'Fire', emoji: '🔥' },
+            { name: 'Wind', emoji: '🌬️' },
+            { name: 'Earth', emoji: '🌍' }
+        ];
+
+        let elements = JSON.parse(localStorage.getItem('reverse-craft-elements')) || [...initialElements];
+        let historyLog = JSON.parse(localStorage.getItem('reverse-craft-history')) || [];
+        let recipes = JSON.parse(localStorage.getItem('reverse-craft-recipes')) || {}; 
+        let currentA = null;
+        let currentB = null;
+
+        // A massive list of generic, fun emojis to assign to new words based on a simple hash
+        const autoEmojis = ['✨','🌟','💫','⭐','🔥','💧','🌬️','🌍','☀️','🌙','⚡','❄️','🌈','🌪️','☄️','💥','🌊','🍎','🍔','🍕','🌮','🍦','🍩','🍺','☕','🍄','🥦','🍇','🍉','🥑','🥩','🥞','🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🐓','🦃','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦦','🦥','🐁','🐀','🐿️','🦔','🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🚚','🚛','🚜','🦯','🦽','🦼','🛴','🚲','🛵','🏍️','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','✈️','🛫','🛬','🛩️','💺','🛰️','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','⛽','🚧','🚦','🚥','🚏','🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋','⛰️','🏔️','🗻','🏕️','⛺','🏠','🏡','🏘️','🏚️','🏗️','🏭','🏢','🏬','🏣','🏤','🏥','🏦','🏨','🏪','🏫','🏩','💒','🏛️','⛪','🕌','🕍','🛕','🕋','⛩️','🛤️','🛣️','🗾','🎑','🏞️','🌅','🌄','🌠','🎇','🎆','🌇','🌆','🏙️','🌃','🌌','🌉','🌁','⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🪔','🧯','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🧰','🔧','🔨','⚒️','🛠️','⛏️','🔩','⚙️','🧱','⛓️','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','⚱️','🏺','🔮','📿','🧿','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪒','🧽','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉'];
+
+        // --- DOM Elements ---
+        const elContainerA = document.getElementById('element-a');
+        const elContainerB = document.getElementById('element-b');
+        const craftForm = document.getElementById('craft-form');
+        const emojiBtn = document.getElementById('emoji-picker-btn');
+        const emojiDropdown = document.getElementById('emoji-dropdown');
+        const selectedEmojiInput = document.getElementById('selected-emoji');
+        const resultInput = document.getElementById('result-input');
+        const skipBtn = document.getElementById('skip-btn');
+        const inventoryGrid = document.getElementById('inventory-grid');
+        const historyContainer = document.getElementById('history-container');
+        const emptyHistoryText = document.getElementById('empty-history');
+        const discoveryCount = document.getElementById('discovery-count');
+
+        // --- Theme Logic ---
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('reverse-craft-theme', isDark ? 'dark' : 'light');
+            updateThemeIcons();
+        }
+
+        function updateThemeIcons() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+        }
+
+        // --- Core Logic ---
+
+        // Initialize Emoji Picker
+        autoEmojis.forEach(emoji => {
+            const span = document.createElement('span');
+            span.className = 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded text-xl text-center flex items-center justify-center';
+            span.innerText = emoji;
+            span.onclick = () => {
+                selectedEmojiInput.value = emoji;
+                emojiBtn.innerText = emoji;
+                emojiDropdown.classList.add('hidden');
+            };
+            emojiDropdown.appendChild(span);
+        });
+
+        emojiBtn.onclick = (e) => {
+            e.stopPropagation();
+            emojiDropdown.classList.toggle('hidden');
+        };
+
+        document.addEventListener('click', () => emojiDropdown.classList.add('hidden'));
+
+        // Simple hash function to consistently assign the same emoji to the same word
+        function getEmojiForWord(word) {
+            let hash = 0;
+            const str = word.toLowerCase();
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0; // Convert to 32bit integer
+            }
+            return autoEmojis[Math.abs(hash) % autoEmojis.length];
+        }
+
+        // Standardize keys for recipes regardless of order (A+B == B+A)
+        function getPairKey(a, b) {
+            return [a.name, b.name].sort().join('|');
+        }
+
+        // Format user input (capitalize first letters)
+        function formatName(name) {
+            return name.trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        }
+
+        function saveProgress() {
+            localStorage.setItem('reverse-craft-elements', JSON.stringify(elements));
+            localStorage.setItem('reverse-craft-history', JSON.stringify(historyLog));
+            localStorage.setItem('reverse-craft-recipes', JSON.stringify(recipes));
+        }
+
+        function pickNextPair() {
+            // Try to find a combination that hasn't been solved yet
+            let foundNewPair = false;
+            
+            // We'll try 100 random pairs. If we can't find a new one, we just pick any random pair.
+            for (let i = 0; i < 100; i++) {
+                let a = elements[Math.floor(Math.random() * elements.length)];
+                let b = elements[Math.floor(Math.random() * elements.length)];
+                let key = getPairKey(a, b);
+                
+                if (!recipes[key]) {
+                    currentA = a;
+                    currentB = b;
+                    foundNewPair = true;
+                    break;
+                }
+            }
+
+            // Fallback if all random tries were already solved
+            if (!foundNewPair) {
+                currentA = elements[Math.floor(Math.random() * elements.length)];
+                currentB = elements[Math.floor(Math.random() * elements.length)];
+            }
+
+            updateCraftingUI();
+        }
+
+        function handleCraft(e) {
+            e.preventDefault();
+            
+            const rawInput = resultInput.value;
+            if (!rawInput.trim()) {
+                resultInput.classList.add('shake');
+                setTimeout(() => resultInput.classList.remove('shake'), 300);
+                return;
+            }
+
+            const rawEmoji = selectedEmojiInput.value.trim();
+            const formattedName = formatName(rawInput);
+            
+            // Check if element already exists to reuse its exact casing and emoji
+            let existingElement = elements.find(el => el.name.toLowerCase() === formattedName.toLowerCase());
+            
+            let finalElement;
+            if (existingElement) {
+                finalElement = existingElement;
+            } else {
+                // Create new element
+                finalElement = {
+                    name: formattedName,
+                    emoji: rawEmoji || getEmojiForWord(formattedName)
+                };
+                elements.push(finalElement);
+            }
+
+            // Save recipe
+            const recipeKey = getPairKey(currentA, currentB);
+            recipes[recipeKey] = finalElement;
+
+            // Add to history
+            addToHistory(currentA, currentB, finalElement);
+
+            // Save to localStorage
+            saveProgress();
+
+            // Reset UI and pick next
+            resultInput.value = '';
+            selectedEmojiInput.value = '';
+            emojiBtn.innerText = '😀';
+            renderInventory();
+            pickNextPair();
+            resultInput.focus();
+        }
+
+        // --- UI Rendering ---
+
+        function updateCraftingUI() {
+            elContainerA.innerHTML = `${currentA.emoji} ${currentA.name}`;
+            elContainerB.innerHTML = `${currentB.emoji} ${currentB.name}`;
+        }
+
+        function renderInventory() {
+            inventoryGrid.innerHTML = '';
+            
+            // Sort elements alphabetically for cleaner inventory, pushing initial to top optionally (but alphabetical is classic)
+            const sortedElements = [...elements].sort((a, b) => a.name.localeCompare(b.name));
+
+            sortedElements.forEach(el => {
+                const badge = document.createElement('div');
+                badge.className = 'element-badge dark:bg-slate-800 dark:border-slate-700 dark:text-white';
+                badge.innerHTML = `${el.emoji} ${el.name}`;
+                // Add a little pop animation for newly added items
+                if (historyLog.length > 0 && historyLog[0].result.name === el.name) {
+                    badge.style.animation = "shake 0.3s ease-out";
+                }
+                inventoryGrid.appendChild(badge);
+            });
+
+            discoveryCount.innerText = `${elements.length} items`;
+        }
+
+        function addToHistory(a, b, result) {
+            historyLog.unshift({ a, b, result });
+            
+            // Keep history log manageable
+            if (historyLog.length > 20) {
+                historyLog.pop();
+            }
+
+            if (emptyHistoryText) {
+                emptyHistoryText.style.display = 'none';
+            }
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            historyContainer.innerHTML = '';
+            historyLog.forEach((entry, index) => {
+                const row = document.createElement('div');
+                // Make older history items fade out slightly
+                const opacity = index === 0 ? '1' : index < 3 ? '0.8' : '0.5';
+                const scale = index === 0 ? 'scale(1)' : 'scale(0.98)';
+                
+                row.className = 'flex flex-wrap items-center justify-center gap-2 text-slate-600 transition-all duration-300 w-full';
+                row.style.opacity = opacity;
+                row.style.transform = scale;
+                
+                row.innerHTML = `
+                    <span class="element-badge !py-1 !px-2 !text-xs sm:!text-sm bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white">${entry.a.emoji} ${entry.a.name}</span>
+                    <span class="text-xs text-slate-400">+</span>
+                    <span class="element-badge !py-1 !px-2 !text-xs sm:!text-sm bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white">${entry.b.emoji} ${entry.b.name}</span>
+                    <span class="text-xs text-slate-400">=</span>
+                    <span class="element-badge !py-1 !px-2 !text-xs sm:!text-sm ${index === 0 ? 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100 dark:border-indigo-700' : 'bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white'}">${entry.result.emoji} ${entry.result.name}</span>
+                `;
+                historyContainer.appendChild(row);
+            });
+        }
+
+        // --- Event Listeners & Init ---
+
+        craftForm.addEventListener('submit', handleCraft);
+        
+        skipBtn.addEventListener('click', () => {
+            // Keep input text if they were in the middle of typing
+            pickNextPair();
+            resultInput.focus();
+        });
+
+        // Initialize the app
+        if (localStorage.getItem('reverse-craft-theme') === 'dark' || 
+            (!localStorage.getItem('reverse-craft-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+        updateThemeIcons();
+
+        renderInventory();
+        if (historyLog.length > 0) {
+            if (emptyHistoryText) emptyHistoryText.style.display = 'none';
+            renderHistory();
+        }
+        
+        pickNextPair();
+        resultInput.focus();
+
+    </script>
+</body>
+</html>
