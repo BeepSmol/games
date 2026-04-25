@@ -74,32 +74,82 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8; 
         }
+
+        /* Crafting Arena Styles */
+        .craft-node {
+            position: absolute;
+            cursor: grab;
+            z-index: 20;
+            transition: transform 0.1s;
+        }
+        .craft-node:active { cursor: grabbing; transform: scale(1.05); }
+        
+        #craft-arena {
+            background-image: 
+                radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        
+        .mode-tab {
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .mode-tab.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        #toast {
+            transform: translateX(-50%) translateY(100px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-10 left-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-medium border border-slate-700 pointer-events-none">
+        You haven't taught the AI this recipe yet!
+    </div>
 
     <!-- Main Action Area -->
     <main class="flex-1 flex flex-col relative h-[60vh] md:h-screen border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_15px_rgba(0,0,0,0.03)] z-10 bg-[#fcfcfc] dark:bg-slate-900">
         
         <!-- Header -->
-        <header class="p-6 flex justify-between items-start">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Reverse Infinite Craft</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">You are the AI. The user asks for a combination. You decide what they make.</p>
+        <header class="p-4 md:p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex flex-col items-center sm:items-start">
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Reverse Infinite Craft</h1>
+                <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mt-2">
+                    <div id="tab-teacher" class="mode-tab active" onclick="switchMode('teacher')">LARP</div>
+                    <div id="tab-player" class="mode-tab" onclick="switchMode('player')">Test</div>
+                </div>
             </div>
-            <div class="flex flex-col items-end gap-3">
-                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:ring-2 hover:ring-slate-200 dark:hover:ring-slate-700 transition-all" title="Toggle Theme">
-                    <span id="theme-icon">🌙</span>
-                </button>
+            <div class="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-2">
                 <div class="text-xs text-slate-400 font-mono text-right hidden sm:block">
                     // ai took my job<br>
                     // so i took its job
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:ring-2 hover:ring-slate-200 dark:hover:ring-slate-700 transition-all" title="Toggle Theme">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                    <button onclick="resetProgress()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 hover:ring-2 hover:ring-rose-200 dark:hover:ring-rose-900 transition-all" title="Reset Progress">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    </button>
                 </div>
             </div>
         </header>
 
         <!-- Crafting Station -->
-        <div class="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-3xl mx-auto">
+        <div id="teacher-view" class="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-3xl mx-auto">
+            <div class="mb-4 text-center">
+                <p class="text-sm text-slate-500 dark:text-slate-400">The user asks for a combination. You decide what they make.</p>
+            </div>
             
             <div class="bg-white dark:bg-slate-800/50 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 w-full flex flex-col items-center">
                 <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-6">Current Request</div>
@@ -152,6 +202,13 @@
             </div>
 
         </div>
+
+        <!-- Standard Player Mode Arena -->
+            <div id="player-view" class="hidden flex-1 relative overflow-hidden" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+            <div id="craft-arena" class="absolute inset-0 cursor-crosshair">
+                <!-- Dragged elements live here -->
+            </div>
+        </div>
     </main>
 
     <!-- Sidebar / Inventory -->
@@ -175,10 +232,11 @@
             { name: 'Earth', emoji: '🌍' }
         ];
 
+        let currentMode = 'teacher';
         let elements = JSON.parse(localStorage.getItem('reverse-craft-elements')) || [...initialElements];
         let historyLog = JSON.parse(localStorage.getItem('reverse-craft-history')) || [];
         let recipes = JSON.parse(localStorage.getItem('reverse-craft-recipes')) || {}; 
-        let currentA = null;
+        let currentA = null; 
         let currentB = null;
 
         // A massive list of generic, fun emojis to assign to new words based on a simple hash
@@ -187,6 +245,9 @@
         // --- DOM Elements ---
         const elContainerA = document.getElementById('element-a');
         const elContainerB = document.getElementById('element-b');
+        const teacherView = document.getElementById('teacher-view');
+        const playerView = document.getElementById('player-view');
+        const craftArena = document.getElementById('craft-arena');
         const craftForm = document.getElementById('craft-form');
         const emojiBtn = document.getElementById('emoji-picker-btn');
         const emojiDropdown = document.getElementById('emoji-dropdown');
@@ -211,6 +272,31 @@
             document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
         }
 
+        function resetProgress() {
+            if (confirm("Are you sure you want to reset all progress? This will delete all discovered elements and recipes.")) {
+                localStorage.removeItem('reverse-craft-elements');
+                localStorage.removeItem('reverse-craft-history');
+                localStorage.removeItem('reverse-craft-recipes');
+                location.reload();
+            }
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('tab-teacher').classList.toggle('active', mode === 'teacher');
+            document.getElementById('tab-player').classList.toggle('active', mode === 'player');
+            
+            teacherView.classList.toggle('hidden', mode !== 'teacher');
+            playerView.classList.toggle('hidden', mode !== 'player');
+            
+            if (mode === 'player') {
+                renderInventory(); // Ensure inventory clicks work for player mode
+            } else {
+                // Cleanup arena if switching back
+                craftArena.innerHTML = '';
+            }
+        }
+
         // --- Core Logic ---
 
         // Initialize Emoji Picker
@@ -232,6 +318,22 @@
         };
 
         document.addEventListener('click', () => emojiDropdown.classList.add('hidden'));
+
+        window.handleDrop = (e) => {
+            e.preventDefault();
+            const data = e.dataTransfer.getData('element');
+            if (!data || currentMode !== 'player') return;
+            const elData = JSON.parse(data);
+            const rect = craftArena.getBoundingClientRect();
+            spawnCraftNode(elData, e.clientX - rect.left - 60, e.clientY - rect.top - 20);
+        };
+
+        function showToast(message) {
+            const t = document.getElementById('toast');
+            t.innerText = message;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
 
         // Simple hash function to consistently assign the same emoji to the same word
         function getEmojiForWord(word) {
@@ -341,16 +443,99 @@
             elContainerB.innerHTML = `${currentB.emoji} ${currentB.name}`;
         }
 
+        // --- Player Mode Arena Logic ---
+        let draggedElement = null;
+        let nodes = [];
+
+        function spawnCraftNode(elData, x, y) {
+            const div = document.createElement('div');
+            div.className = 'element-badge craft-node dark:bg-slate-800 dark:border-slate-700 dark:text-white shadow-lg';
+            div.innerHTML = `${elData.emoji} ${elData.name}`;
+            div.style.left = (x !== undefined ? x : Math.random() * (craftArena.clientWidth - 100)) + 'px';
+            div.style.top = (y !== undefined ? y : Math.random() * (craftArena.clientHeight - 50)) + 'px';
+            
+            const node = { el: div, data: elData };
+            
+            div.onmousedown = (e) => {
+                draggedElement = node;
+                div.style.zIndex = 1000;
+            };
+
+            craftArena.appendChild(div);
+            nodes.push(node);
+        }
+
+        playerView.addEventListener('mousemove', (e) => {
+            if (!draggedElement) return;
+            const rect = craftArena.getBoundingClientRect();
+            draggedElement.el.style.left = (e.clientX - rect.left - draggedElement.el.offsetWidth / 2) + 'px';
+            draggedElement.el.style.top = (e.clientY - rect.top - draggedElement.el.offsetHeight / 2) + 'px';
+        });
+
+        playerView.addEventListener('mouseup', (e) => {
+            if (!draggedElement) return;
+            
+            const cur = draggedElement;
+            const curRect = cur.el.getBoundingClientRect();
+            
+            // Check collision with other nodes
+            const target = nodes.find(n => {
+                if (n === cur) return false;
+                const r = n.el.getBoundingClientRect();
+                return !(curRect.right < r.left || curRect.left > r.right || curRect.bottom < r.top || curRect.top > r.bottom);
+            });
+
+            if (target) {
+                const key = getPairKey(cur.data, target.data);
+                const result = recipes[key];
+                
+                if (result) {
+                    // Successful craft
+                    const spawnX = (parseFloat(cur.el.style.left) + parseFloat(target.el.style.left)) / 2;
+                    const spawnY = (parseFloat(cur.el.style.top) + parseFloat(target.el.style.top)) / 2;
+                    
+                    // Remove ingredients
+                    cur.el.remove();
+                    target.el.remove();
+                    nodes = nodes.filter(n => n !== cur && n !== target);
+                    
+                    spawnCraftNode(result, spawnX, spawnY);
+                } else {
+                    showToast(`The AI doesn't know what ${cur.data.name} + ${target.data.name} makes. Switch to Larp Mode to show it!`);
+                    // Bounce apart
+                    cur.el.style.left = (parseFloat(cur.el.style.left) - 20) + 'px';
+                }
+            }
+
+            draggedElement.el.style.zIndex = 20;
+            draggedElement = null;
+        });
+
         function renderInventory() {
             inventoryGrid.innerHTML = '';
             
-            // Sort elements alphabetically for cleaner inventory, pushing initial to top optionally (but alphabetical is classic)
             const sortedElements = [...elements].sort((a, b) => a.name.localeCompare(b.name));
 
             sortedElements.forEach(el => {
                 const badge = document.createElement('div');
-                badge.className = 'element-badge dark:bg-slate-800 dark:border-slate-700 dark:text-white';
+                badge.className = 'element-badge dark:bg-slate-800 dark:border-slate-700 dark:text-white cursor-pointer';
                 badge.innerHTML = `${el.emoji} ${el.name}`;
+                
+                badge.onclick = () => {
+                    if (currentMode === 'player') {
+                        spawnCraftNode(el);
+                    }
+                };
+
+                badge.draggable = true;
+                badge.ondragstart = (e) => {
+                    if (currentMode !== 'player') {
+                        e.preventDefault();
+                        return;
+                    }
+                    e.dataTransfer.setData('element', JSON.stringify(el));
+                };
+
                 // Add a little pop animation for newly added items
                 if (historyLog.length > 0 && historyLog[0].result.name === el.name) {
                     badge.style.animation = "shake 0.3s ease-out";
