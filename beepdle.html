@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Beepdle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Clear+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #121213;
+            color: #ffffff;
+            touch-action: manipulation;
+        }
+
+        .board-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .board {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 5px;
+            padding: 10px;
+            box-sizing: border-box;
+            width: 350px;
+            max-width: 100%;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .tile {
+            width: 100%;
+            padding-bottom: 100%; /* 1:1 Aspect ratio */
+            position: relative;
+        }
+
+        .tile-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            line-height: 1;
+            text-transform: uppercase;
+            border: 2px solid #3a3a3c;
+            transition: border-color 0.1s ease;
+        }
+
+        .tile[data-state="tbd"] .tile-content {
+            border-color: #565758;
+            animation: popIn 0.1s;
+        }
+
+        .tile[data-state="correct"] .tile-content {
+            background-color: #538d4e;
+            border-color: #538d4e;
+        }
+
+        .tile[data-state="present"] .tile-content {
+            background-color: #b59f3b;
+            border-color: #b59f3b;
+        }
+
+        .tile[data-state="absent"] .tile-content {
+            background-color: #3a3a3c;
+            border-color: #3a3a3c;
+        }
+
+        /* Keyboard styles */
+        .keyboard {
+            padding: 0 8px 8px;
+            user-select: none;
+        }
+
+        .key-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 8px;
+            touch-action: manipulation;
+        }
+
+        .key {
+            font-family: inherit;
+            font-weight: bold;
+            border: 0;
+            padding: 0;
+            margin: 0 3px;
+            height: 58px;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            background-color: #818384;
+            color: #ffffff;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-transform: uppercase;
+            font-size: 1.25rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .key.large {
+            flex: 1.5;
+            font-size: 12px;
+        }
+
+        .key[data-state="correct"] { background-color: #538d4e; }
+        .key[data-state="present"] { background-color: #b59f3b; }
+        .key[data-state="absent"] { background-color: #3a3a3c; }
+
+        /* Animations */
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            40% { transform: scale(1.1); opacity: 1; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes flipIn {
+            0% { transform: rotateX(0); }
+            100% { transform: rotateX(-90deg); }
+        }
+
+        @keyframes flipOut {
+            0% { transform: rotateX(-90deg); }
+            100% { transform: rotateX(0); }
+        }
+
+        .flip-in { animation: flipIn 0.25s ease-in forwards; }
+        .flip-out { animation: flipOut 0.25s ease-out forwards; }
+
+        .shake {
+            animation: shake 0.6s;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        @keyframes bounce {
+            0%, 20% { transform: translateY(0); }
+            40% { transform: translateY(-30px); }
+            50% { transform: translateY(0); }
+            60% { transform: translateY(-15px); }
+            80% { transform: translateY(0); }
+        }
+
+        .bounce { animation: bounce 1s; }
+
+        /* Toast notifications */
+        #toast-container {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .toast {
+            background-color: #ffffff;
+            color: #000000;
+            padding: 13px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col m-0">
+
+    <!-- Header -->
+    <header class="flex flex-col items-center justify-center px-5 py-2 border-b border-[#3a3a3c] relative">
+        <h1 class="text-3xl font-bold tracking-wider text-center w-full">BEEPDLE</h1>
+        <p class="text-xs text-gray-400 italic mt-1">the beepdle is always beeps</p>
+        <div class="absolute right-5 top-1/2 -translate-y-1/2">
+            <!-- Help Icon (Decorative) -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+    </header>
+
+    <!-- Results Modal -->
+    <div id="results-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex justify-center items-center">
+        <div class="bg-[#121213] border border-[#3a3a3c] p-6 rounded-lg w-[90%] max-w-sm text-center shadow-2xl relative">
+            <button onclick="document.getElementById('results-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h2 class="text-2xl font-bold mb-4 uppercase tracking-widest">Statistics</h2>
+            <div class="flex justify-center gap-4 mb-6">
+                <div class="flex flex-col"><span class="text-3xl font-bold" id="stat-played">0</span><span class="text-xs">Played</span></div>
+                <div class="flex flex-col"><span class="text-3xl font-bold" id="stat-winpct">0</span><span class="text-xs">Win %</span></div>
+                <div class="flex flex-col"><span class="text-3xl font-bold" id="stat-streak">0</span><span class="text-xs">Current<br>Streak</span></div>
+                <div class="flex flex-col"><span class="text-3xl font-bold" id="stat-maxstreak">0</span><span class="text-xs">Max<br>Streak</span></div>
+            </div>
+            <div class="flex justify-center gap-4 mt-6">
+                <button onclick="shareScore()" class="flex-1 bg-[#538d4e] hover:bg-[#43723e] text-white font-bold py-3 px-4 rounded transition flex justify-center items-center gap-2">
+                    SHARE <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                </button>
+                <button onclick="resetGame()" class="flex-1 bg-[#3a3a3c] hover:bg-[#565758] text-white font-bold py-3 px-4 rounded transition">
+                    TRY AGAIN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container"></div>
+
+    <!-- Game Board -->
+    <div class="board-container">
+        <div id="board" class="board">
+            <!-- Rows generated by JS -->
+        </div>
+    </div>
+
+    <!-- Keyboard -->
+    <div id="keyboard" class="keyboard max-w-[500px] w-full mx-auto">
+        <!-- Keyboard generated by JS -->
+    </div>
+
+    <script>
+        let TARGET_WORD = Math.random() < 0.01 ? "BEEPY" : "BEEPS";
+        const WORD_LENGTH = 5;
+        const MAX_GUESSES = 6;
+        
+        let currentRow = 0;
+        let currentTile = 0;
+        let isGameOver = false;
+        let currentGrid = [];
+        
+        let stats = { played: 0, wins: 0, currentStreak: 0, maxStreak: 0 };
+        
+        let boardElements = [];
+        let keyElements = {};
+        
+        const keyboardLayout = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
+        ];
+
+        // Initialize Game
+        function init() {
+            createBoard();
+            createKeyboard();
+            setupEventListeners();
+        }
+
+        function createBoard() {
+            const board = document.getElementById('board');
+            for (let i = 0; i < MAX_GUESSES; i++) {
+                const row = document.createElement('div');
+                row.className = 'row';
+                row.id = `row-${i}`;
+                
+                const rowElements = [];
+                for (let j = 0; j < WORD_LENGTH; j++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.dataset.state = 'empty';
+                    
+                    const tileContent = document.createElement('div');
+                    tileContent.className = 'tile-content';
+                    tile.appendChild(tileContent);
+                    
+                    row.appendChild(tile);
+                    rowElements.push({ container: tile, content: tileContent });
+                }
+                board.appendChild(row);
+                boardElements.push(rowElements);
+            }
+        }
+
+        function createKeyboard() {
+            const keyboard = document.getElementById('keyboard');
+            keyboardLayout.forEach(row => {
+                const rowElement = document.createElement('div');
+                rowElement.className = 'key-row';
+                
+                row.forEach(key => {
+                    const keyElement = document.createElement('button');
+                    keyElement.className = 'key';
+                    keyElement.textContent = key === 'BACKSPACE' ? '' : key;
+                    keyElement.dataset.key = key;
+                    
+                    if (key === 'ENTER' || key === 'BACKSPACE') {
+                        keyElement.classList.add('large');
+                    }
+                    
+                    if (key === 'BACKSPACE') {
+                        keyElement.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
+                                <path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z"/>
+                            </svg>`;
+                    }
+
+                    keyElement.addEventListener('click', () => handleInput(key));
+                    rowElement.appendChild(keyElement);
+                    
+                    if (key !== 'ENTER' && key !== 'BACKSPACE') {
+                        keyElements[key] = keyElement;
+                    }
+                });
+                keyboard.appendChild(rowElement);
+            });
+        }
+
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                if (isGameOver) return;
+                
+                if (e.key === 'Enter') {
+                    handleInput('ENTER');
+                } else if (e.key === 'Backspace') {
+                    handleInput('BACKSPACE');
+                } else if (/^[a-zA-Z]$/.test(e.key)) {
+                    handleInput(e.key.toUpperCase());
+                }
+            });
+        }
+
+        function handleInput(key) {
+            if (isGameOver) return;
+
+            if (key === 'BACKSPACE') {
+                deleteLetter();
+            } else if (key === 'ENTER') {
+                submitGuess();
+            } else {
+                addLetter(key);
+            }
+        }
+
+        function addLetter(letter) {
+            if (currentTile < WORD_LENGTH && currentRow < MAX_GUESSES) {
+                const tile = boardElements[currentRow][currentTile];
+                tile.content.textContent = letter;
+                tile.container.dataset.state = 'tbd';
+                currentTile++;
+            }
+        }
+
+        function deleteLetter() {
+            if (currentTile > 0) {
+                currentTile--;
+                const tile = boardElements[currentRow][currentTile];
+                tile.content.textContent = '';
+                tile.container.dataset.state = 'empty';
+                
+                // Force reflow to remove pop animation if rapidly deleting
+                tile.container.style.animation = 'none';
+                tile.container.offsetHeight; 
+                tile.container.style.animation = null;
+            }
+        }
+
+        function getGuess() {
+            let guess = '';
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                guess += boardElements[currentRow][i].content.textContent;
+            }
+            return guess;
+        }
+
+        function submitGuess() {
+            const guess = getGuess();
+            
+            if (guess.length !== WORD_LENGTH) {
+                showToast("Not enough letters");
+                shakeRow();
+                return;
+            }
+
+            evaluateAndAnimateGuess(guess);
+        }
+
+        function evaluateAndAnimateGuess(guess) {
+            let targetArr = TARGET_WORD.split('');
+            let guessArr = guess.split('');
+            let evaluation = Array(WORD_LENGTH).fill('absent');
+
+            // Pass 1: Find Greens (Correct)
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (guessArr[i] === targetArr[i]) {
+                    evaluation[i] = 'correct';
+                    targetArr[i] = null; // Mark as used
+                    guessArr[i] = null; // Mark as handled
+                }
+            }
+
+            // Pass 2: Find Yellows (Present)
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (guessArr[i] !== null && targetArr.includes(guessArr[i])) {
+                    evaluation[i] = 'present';
+                    targetArr[targetArr.indexOf(guessArr[i])] = null; // Mark as used
+                }
+            }
+
+            const emojiRow = evaluation.map(state => {
+                if (state === 'correct') return '🟩';
+                if (state === 'present') return '🟨';
+                return '⬛';
+            }).join('');
+            currentGrid.push(emojiRow);
+
+            animateRow(evaluation, guess);
+        }
+
+        function animateRow(evaluation, guess) {
+            isGameOver = true; // Block input during animation
+            const rowIdx = currentRow;
+            const tiles = boardElements[rowIdx];
+            let delay = 0;
+
+            tiles.forEach((tileObj, i) => {
+                setTimeout(() => {
+                    const tile = tileObj.container;
+                    const content = tileObj.content;
+                    
+                    // Add flip in
+                    content.classList.add('flip-in');
+                    
+                    setTimeout(() => {
+                        // Change color midway through flip
+                        tile.dataset.state = evaluation[i];
+                        content.classList.remove('flip-in');
+                        content.classList.add('flip-out');
+                        
+                        setTimeout(() => {
+                            content.classList.remove('flip-out');
+                            
+                            // Update keyboard colors after tile finishes flipping
+                            updateKeyboardColor(guess[i], evaluation[i]);
+
+                            // If this is the last tile, finish the round
+                            if (i === WORD_LENGTH - 1) {
+                                completeRound(guess);
+                            }
+                        }, 250);
+                    }, 250);
+                    
+                }, delay);
+                delay += 300; // Stagger effect
+            });
+        }
+
+        function updateKeyboardColor(letter, state) {
+            const keyEl = keyElements[letter];
+            if (!keyEl) return;
+
+            const currentState = keyEl.dataset.state;
+            
+            // Priority: correct > present > absent
+            if (state === 'correct' || (state === 'present' && currentState !== 'correct') || (state === 'absent' && currentState !== 'correct' && currentState !== 'present')) {
+                keyEl.dataset.state = state;
+            }
+        }
+
+        function completeRound(guess) {
+            if (guess === TARGET_WORD) {
+                // Win
+                updateStats(true);
+                setTimeout(() => {
+                    bounceRow();
+                    showToast(getWinMessage(currentRow));
+                    setTimeout(showResultsModal, 1500);
+                }, 300);
+            } else {
+                currentRow++;
+                currentTile = 0;
+                
+                if (currentRow >= MAX_GUESSES) {
+                    // Loss
+                    updateStats(false);
+                    setTimeout(() => {
+                        showToast(TARGET_WORD, 5000);
+                        setTimeout(showResultsModal, 1500);
+                    }, 300);
+                } else {
+                    // Resume game
+                    isGameOver = false;
+                }
+            }
+        }
+
+        function updateStats(isWin) {
+            stats.played++;
+            if (isWin) {
+                stats.wins++;
+                stats.currentStreak++;
+                stats.maxStreak = Math.max(stats.currentStreak, stats.maxStreak);
+            } else {
+                stats.currentStreak = 0;
+            }
+        }
+
+        function showResultsModal() {
+            const winPct = stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0;
+            document.getElementById('stat-played').textContent = stats.played;
+            document.getElementById('stat-winpct').textContent = winPct;
+            document.getElementById('stat-streak').textContent = stats.currentStreak;
+            document.getElementById('stat-maxstreak').textContent = stats.maxStreak;
+            document.getElementById('results-modal').classList.remove('hidden');
+        }
+
+        function shareScore() {
+            const won = currentRow < MAX_GUESSES;
+            const winRow = won ? (currentRow + 1) : 'X';
+            const resultString = `Beepdle ${stats.played} ${winRow}/${MAX_GUESSES}\n\n` + currentGrid.join('\n') + `\n\nplay beepdle at https://beepsmol.com/projects/beepdle.html !`;
+            
+            const textArea = document.createElement("textarea");
+            textArea.value = resultString;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Copied results to clipboard!");
+            } catch (err) {
+                showToast("Failed to copy");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function resetGame() {
+            document.getElementById('results-modal').classList.add('hidden');
+            
+            TARGET_WORD = Math.random() < 0.01 ? "BEEPY" : "BEEPS";
+            
+            currentRow = 0;
+            currentTile = 0;
+            isGameOver = false;
+            currentGrid = [];
+            
+            document.getElementById('board').innerHTML = '';
+            document.getElementById('keyboard').innerHTML = '';
+            
+            boardElements = [];
+            keyElements = {};
+            
+            createBoard();
+            createKeyboard();
+        }
+
+        function getWinMessage(rowIdx) {
+            const messages = ["Genius", "Magnificent", "Impressive", "Splendid", "Great", "Phew"];
+            return messages[rowIdx] || "You got it!";
+        }
+
+        function shakeRow() {
+            const rowEl = document.getElementById(`row-${currentRow}`);
+            rowEl.classList.remove('shake');
+            void rowEl.offsetWidth; // Trigger reflow
+            rowEl.classList.add('shake');
+        }
+
+        function bounceRow() {
+            const tiles = boardElements[currentRow];
+            let delay = 0;
+            tiles.forEach(tileObj => {
+                setTimeout(() => {
+                    const content = tileObj.content;
+                    content.classList.add('bounce');
+                }, delay);
+                delay += 100;
+            });
+        }
+
+        function showToast(message, duration = 2000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, duration);
+        }
+
+        // Run
+        init();
+    </script>
+</body>
+</html>
